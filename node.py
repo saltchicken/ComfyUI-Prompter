@@ -113,7 +113,6 @@ class CustomizablePromptGenerator:
         for segment in structure_order:
             # Handle special BREAK keywords defined in the JSON structure
             if segment in ["BREAK_CLIPG", "BREAK_CLIPL"]:
-                final_parts.append(segment)
                 continue
 
             # If segment is "{lighting}", we look up 'lighting' in selected_values
@@ -137,7 +136,7 @@ class CustomizablePromptGenerator:
                         # No formatting rule, just use the raw value
                         final_parts.append(value)
 
-        # 3. Assemble and Split
+        # 3. Assemble
         full_string = " ".join(final_parts)
 
         # Cleanup punctuation (basic)
@@ -145,29 +144,7 @@ class CustomizablePromptGenerator:
         full_string = full_string.replace(" ,", ",")
         full_string = full_string.replace(" .", ".")
 
-        # Split based on breaks (Using the logic from the old project but simplified)
-        t5_parts = []
-        clip_l_parts = []
-        clip_g_parts = []
 
-        current_bucket = t5_parts
+        # Now returns the simple linear string.
 
-        # Re-split by the exact tokens we inserted
-        tokens = full_string.split(" ")
-
-        for token in tokens:
-            if token == "BREAK_CLIPL":
-                current_bucket = clip_l_parts
-            elif token == "BREAK_CLIPG":
-                current_bucket = clip_g_parts
-            else:
-                current_bucket.append(token)
-
-        t5_out = " ".join(t5_parts)
-        clip_l_out = " ".join(clip_l_parts)
-        clip_g_out = " ".join(clip_g_parts)
-
-        # Combine clean prompt
-        combined_out = f"{t5_out} {clip_l_out} {clip_g_out}".strip()
-
-        return (combined_out,)
+        return (full_string,)
