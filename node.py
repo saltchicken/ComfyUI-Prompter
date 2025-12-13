@@ -23,7 +23,7 @@ def load_json(path):
 
 def get_available_categories():
     """
-    ‼️ DYNAMIC LOADING:
+    DYNAMIC LOADING:
     Scans the 'data' folder. Every .json file found becomes a category.
     The filename (minus .json) is used as the key.
     """
@@ -40,14 +40,13 @@ def get_available_categories():
     return categories
 
 
-class CustomizableFluxPromptGenerator:
+class CustomizablePromptGenerator:
     """
     A dynamic prompt generator that builds its UI and Logic based on external files.
     """
 
     @classmethod
     def INPUT_TYPES(cls):
-
         # Instead of hardcoding keys like "lighting", we generate them from files.
         categories = get_available_categories()
 
@@ -74,7 +73,6 @@ class CustomizableFluxPromptGenerator:
 
         return inputs
 
-
     RETURN_TYPES = ("STRING",)
 
     RETURN_NAMES = ("combined_prompt",)
@@ -82,7 +80,6 @@ class CustomizableFluxPromptGenerator:
     CATEGORY = "Prompt/Custom"
 
     def execute(self, seed, custom_text, **kwargs):
-
         # We load instructions on how to build the prompt from a file, not python code.
         templates = load_json(TEMPLATE_PATH)
         rng = random.Random(seed)
@@ -119,7 +116,6 @@ class CustomizableFluxPromptGenerator:
                 final_parts.append(segment)
                 continue
 
-
             # If segment is "{lighting}", we look up 'lighting' in selected_values
             # If we find a value, we check if there is a formatter like "lit by {value}"
 
@@ -141,7 +137,7 @@ class CustomizableFluxPromptGenerator:
                         # No formatting rule, just use the raw value
                         final_parts.append(value)
 
-        # 3. Assemble and Split (Flux Logic)
+        # 3. Assemble and Split
         full_string = " ".join(final_parts)
 
         # Cleanup punctuation (basic)
@@ -173,6 +169,5 @@ class CustomizableFluxPromptGenerator:
 
         # Combine clean prompt
         combined_out = f"{t5_out} {clip_l_out} {clip_g_out}".strip()
-
 
         return (combined_out,)

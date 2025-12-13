@@ -1,11 +1,7 @@
-from .node import CustomizableFluxPromptGenerator
+from .node import CustomizablePromptGenerator
 
-NODE_CLASS_MAPPINGS = {
-    "CustomizableFluxPromptGenerator": CustomizableFluxPromptGenerator
-}
+NODE_CLASS_MAPPINGS = {"CustomizablePromptGenerator": CustomizablePromptGenerator}
 
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "CustomizableFluxPromptGenerator": "Flux Prompt Generator (Custom)"
-}
+NODE_DISPLAY_NAME_MAPPINGS = {"CustomizablePromptGenerator": "Prompter"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
