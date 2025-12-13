@@ -1,0 +1,24 @@
+{
+    "__comment": "‼️ This file controls the Prompt Structure. You can change the order or phrasing here without touching Python code.",
+    
+    "formatting": {
+        "artform": "A {value}",
+        "subject": "of {value}",
+        "lighting": "illuminated by {value} lighting",
+        "clothing": "wearing {value}",
+        "camera": "shot on {value}"
+    },
+
+    "structure": [
+        "{custom_text}",
+        "{artform}",
+        "{subject}",
+        "{clothing}",
+        "{lighting}",
+        "BREAK_CLIPG",
+        "{background}",
+        "BREAK_CLIPL",
+        "{style}",
+        "{camera}"
+    ]
+}
