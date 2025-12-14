@@ -53,6 +53,7 @@ class CustomizablePromptGenerator:
         inputs = {
             "required": {
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
+
                 "custom_text": (
                     "STRING",
                     {
@@ -66,7 +67,8 @@ class CustomizablePromptGenerator:
         }
 
         # Add a dropdown for every JSON file found in /data
-        for cat_name, items in categories.items():
+
+        for cat_name, items in sorted(categories.items()):
             # Add "random" and "disabled" options to every list
             options = ["disabled", "random"] + sorted(items)
             inputs["optional"][cat_name] = (options, {"default": "disabled"})
@@ -136,6 +138,17 @@ class CustomizablePromptGenerator:
                         # No formatting rule, just use the raw value
                         final_parts.append(value)
 
+
+            elif segment in selected_values:
+                val = selected_values[segment]
+                # Only append if the user actually typed something
+                if val:
+                    final_parts.append(val)
+
+
+            else:
+                final_parts.append(segment)
+
         # 3. Assemble
         full_string = " ".join(final_parts)
 
@@ -143,7 +156,6 @@ class CustomizablePromptGenerator:
         full_string = re.sub(r"\s+", " ", full_string).strip()
         full_string = full_string.replace(" ,", ",")
         full_string = full_string.replace(" .", ".")
-
 
         # Now returns the simple linear string.
 

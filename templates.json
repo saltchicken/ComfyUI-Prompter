@@ -1,24 +1,25 @@
 {
-    "__comment": "‼️ This file controls the Prompt Structure. You can change the order or phrasing here without touching Python code.",
-    
-    "formatting": {
-        "artform": "A {value}",
-        "subject": "of {value}",
-        "lighting": "illuminated by {value} lighting",
-        "clothing": "wearing {value}",
-        "camera": "shot on {value}"
-    },
-
     "structure": [
-        "{custom_text}",
-        "{artform}",
+        "custom_text",
         "{subject}",
+        "{body_type}",
+        "{hair}",
         "{clothing}",
-        "{lighting}",
-        "BREAK_CLIPG",
+        "{accessories}",
+        "{pose}",
         "{background}",
-        "BREAK_CLIPL",
-        "{style}",
-        "{camera}"
-    ]
+        "{lighting}",
+        "{style}"
+    ],
+    "formatting": {
+        "subject": "{value}",
+        "body_type": "{value} physique",
+        "hair": "with {value} hair",
+        "clothing": "wearing {value}",
+        "accessories": "accessorized with {value}",
+        "pose": "{value}",
+        "background": "in {value}",
+        "lighting": "lit by {value}",
+        "style": "{value}"
+    }
 }
