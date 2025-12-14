@@ -1,25 +1,53 @@
 {
-    "structure": [
-        "custom_text",
-        "{subject}",
-        "{body_type}",
-        "{hair}",
-        "{clothing}",
-        "{accessories}",
-        "{pose}",
-        "{background}",
-        "{lighting}",
-        "{style}"
-    ],
-    "formatting": {
-        "subject": "{value}",
-        "body_type": "{value} physique",
-        "hair": "with {value} hair",
-        "clothing": "wearing {value}",
-        "accessories": "accessorized with {value}",
-        "pose": "{value}",
-        "background": "in {value}",
-        "lighting": "lit by {value}",
-        "style": "{value}"
+    "Full Detailed": {
+        "structure": [
+            "custom_text",
+            "{subject}",
+            "{body_type}",
+            "{hair}",
+            "{clothing}",
+            "{accessories}",
+            "{pose}",
+            "{background}",
+            "{lighting}",
+            "{style}"
+        ],
+        "formatting": {
+            "subject": "{value}",
+            "body_type": "{value} physique",
+            "hair": "with {value} hair",
+            "clothing": "wearing {value}",
+            "accessories": "accessorized with {value}",
+            "pose": "{value}",
+            "background": "in {value}",
+            "lighting": "lit by {value}",
+            "style": "{value}"
+        }
+    },
+    "Simple Character": {
+        "structure": [
+            "custom_text",
+            "{subject}",
+            "{clothing}",
+            "{style}"
+        ],
+        "formatting": {
+            "subject": "{value}",
+            "clothing": "wearing {value}",
+            "style": "art style: {value}"
+        }
+    },
+    "Environment Focus": {
+        "structure": [
+            "{background}",
+            "{lighting}",
+            "custom_text",
+            "{style}"
+        ],
+        "formatting": {
+            "background": "{value}",
+            "lighting": "{value}",
+            "style": "{value}"
+        }
     }
 }
