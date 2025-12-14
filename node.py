@@ -24,7 +24,6 @@ def load_json(path):
 
 
 def get_data_cached(key, loader_func):
-    """‼️ ADDED: generic caching helper."""
     if _CACHE[key] is None:
         _CACHE[key] = loader_func()
     return _CACHE[key]
@@ -46,16 +45,13 @@ def _load_categories_from_disk():
 
 
 def get_available_categories():
-    """‼️ CHANGED: Now uses the cache system."""
     return get_data_cached("categories", _load_categories_from_disk)
 
 
 def get_templates():
-    """‼️ ADDED: Load templates with caching."""
-
     def _load():
         data = load_json(TEMPLATE_PATH)
-        # Handle legacy format (if user hasn't updated templates.json yet)
+        # Handle legacy format
         if "structure" in data:
             return {"Default": data}
         return data
@@ -76,7 +72,6 @@ class CustomizablePromptGenerator:
         inputs = {
             "required": {
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
-
                 "template": (list(templates.keys()),),
                 "custom_text": (
                     "STRING",
@@ -102,18 +97,13 @@ class CustomizablePromptGenerator:
     CATEGORY = "Prompt/Custom"
 
     def execute(self, seed, custom_text, template, **kwargs):
-
         all_templates = get_templates()
-
-
         current_template = all_templates.get(template, list(all_templates.values())[0])
 
         rng = random.Random(seed)
 
         # 1. Resolve Selections
         selected_values = {"custom_text": custom_text}
-
-
         categories = get_available_categories()
 
         for key, value in kwargs.items():
@@ -135,10 +125,8 @@ class CustomizablePromptGenerator:
         final_parts = []
 
         for segment in structure_order:
-            # Handle special BREAK keywords
             if segment in ["BREAK_CLIPG", "BREAK_CLIPL"]:
                 continue
-
 
             key_match = re.search(r"^{([\w_]+)}$", segment)
 
@@ -148,32 +136,38 @@ class CustomizablePromptGenerator:
 
                 if value:
                     if key in formatting_rules:
-
                         fmt = formatting_rules[key]
                         final_parts.append(fmt.replace("{value}", value))
                     else:
                         final_parts.append(value)
 
             elif segment in selected_values:
-                # Direct reference (like 'custom_text')
                 val = selected_values[segment]
                 if val:
                     final_parts.append(val)
             else:
-                # Static text in template
                 final_parts.append(segment)
 
         # 3. Assemble and Clean
         full_string = " ".join(final_parts)
 
-
-        # 1. Replace multiple spaces with single space
+        # --- ‼️ UPDATED CLEANUP LOGIC FOR CONNECTORS ---
+        # 1. Replace multiple spaces
         full_string = re.sub(r"\s+", " ", full_string)
-        # 2. Fix space before punctuation (e.g. "word , word" -> "word, word")
+
+        # 2. ‼️ Remove dangling connectors before punctuation (e.g. "wearing ,")
+        full_string = re.sub(r"\b(and|with|wearing|in)\s+([,.:;])", r"\2", full_string)
+
+        # 3. ‼️ Remove connectors at the end of string
+        full_string = re.sub(r"\s+\b(and|with|wearing|in)\s*$", "", full_string)
+
+        # 4. Fix space before punctuation
         full_string = re.sub(r"\s+([,.:;])", r"\1", full_string)
-        # 3. Fix double punctuation (e.g. "word,, word" -> "word, word")
+
+        # 5. Fix double punctuation
         full_string = re.sub(r"([,.:;])\1+", r"\1", full_string)
-        # 4. Clean leading/trailing punctuation/spaces
+
+        # 6. Clean leading/trailing punctuation/spaces
         full_string = full_string.strip(" ,.:;")
 
         return (full_string,)
