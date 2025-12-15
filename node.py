@@ -131,7 +131,8 @@ class CustomizablePromptGenerator:
 
         categories = _load_categories_from_disk()
 
-        rng = random.Random(seed)
+
+        # rng = random.Random(seed)
 
         # 1. Resolve Selections
         selected_values = {"custom_text": custom_text}
@@ -142,7 +143,12 @@ class CustomizablePromptGenerator:
             elif value == "random":
                 options = categories.get(key, [])
                 if options:
-                    selected_values[key] = rng.choice(options)
+
+                    field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
+                    field_rng = random.Random(field_seed)
+
+                    choice = field_rng.choice(options)
+                    selected_values[key] = choice
                 else:
                     selected_values[key] = ""
             else:
@@ -163,8 +169,13 @@ class CustomizablePromptGenerator:
                 value = selected_values.get(key, "")
 
                 if value:
+
+                    # This ensures wildcards inside a field resolve consistently even if other fields change
+                    field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
+                    field_rng = random.Random(field_seed)
+
                     # E.g. if Subject is "a {body_type} warrior", resolve {body_type} now
-                    value = resolve_wildcards(value, categories, rng)
+                    value = resolve_wildcards(value, categories, field_rng)
 
                     if key in formatting_rules:
                         fmt = formatting_rules[key]
@@ -177,7 +188,13 @@ class CustomizablePromptGenerator:
             elif segment in selected_values:
                 val = selected_values[segment]
                 if val:
-                    val = resolve_wildcards(val, categories, rng)
+
+                    field_seed = seed + sum(
+                        ord(c) * (i + 1) for i, c in enumerate(segment)
+                    )
+                    field_rng = random.Random(field_seed)
+
+                    val = resolve_wildcards(val, categories, field_rng)
                     final_parts.append(val)
             else:
                 # Pass through static text (e.g. "masterpiece", "BREAK")
