@@ -84,7 +84,7 @@
             "subject": "of {value}",
             "body_type": "{value} physique",
             "hair": "with {value} hair",
-            "emotions": "looking {value}",
+            "emotions": "{value} expression",
             "clothing_top_color": "{value}",
             "clothing_top": "{value}",
             "accessories": "accessorized with {value}",
@@ -109,7 +109,7 @@
         ],
         "formatting": {
             "subject": "{value}",
-            "emotions": "looking {value}",
+            "emotions": "{value} expression",
             "clothing": "wearing {value}",
             "pose": "{value}",
             "background": "in {value}",

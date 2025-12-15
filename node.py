@@ -4,7 +4,6 @@ import random
 import re
 import logging
 
-
 logging.basicConfig(
     level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
 )
@@ -14,7 +13,9 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates.json")
 
-_CACHE = {"categories": None, "templates": None}
+
+# We only cache templates now as they are less likely to change frequently during runtime.
+_TEMPLATE_CACHE = None
 
 
 def load_json(path):
@@ -25,15 +26,8 @@ def load_json(path):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-
         logger.error(f"Error loading {path}: {e}")
         return {}
-
-
-def get_data_cached(key, loader_func):
-    if _CACHE[key] is None:
-        _CACHE[key] = loader_func()
-    return _CACHE[key]
 
 
 def _load_categories_from_disk():
@@ -47,10 +41,8 @@ def _load_categories_from_disk():
             category_name = filename[:-5]
             data = load_json(os.path.join(DATA_DIR, filename))
 
-
-            # Ensure we only load lists, ignoring config objects or other JSON types
+            # Ensure we only load lists
             if isinstance(data, list):
-                # Filter out empty strings just in case
                 clean_data = [str(item) for item in data if str(item).strip()]
                 categories[category_name] = clean_data
             else:
@@ -59,19 +51,39 @@ def _load_categories_from_disk():
     return categories
 
 
-def get_available_categories():
-    return get_data_cached("categories", _load_categories_from_disk)
-
-
 def get_templates():
-    def _load():
+    global _TEMPLATE_CACHE
+    if _TEMPLATE_CACHE is None:
         data = load_json(TEMPLATE_PATH)
         # Handle legacy format
         if "structure" in data:
-            return {"Default": data}
-        return data
+            _TEMPLATE_CACHE = {"Default": data}
+        else:
+            _TEMPLATE_CACHE = data
+    return _TEMPLATE_CACHE
 
-    return get_data_cached("templates", _load)
+
+# This allows a value in "clothing.json" to be "a {color} dress" and have {color} resolved automatically.
+def resolve_wildcards(text, categories, rng, depth=0):
+    if depth > 10:  # Prevent infinite loops
+        return text
+
+    def replacer(match):
+        key = match.group(1)
+        # Check if the key exists in our loaded categories
+        if key in categories:
+            options = categories[key]
+            if options:
+                # Pick a random option
+                choice = rng.choice(options)
+
+                return resolve_wildcards(choice, categories, rng, depth + 1)
+
+        # If key not found, leave it alone (it might be a syntax for another node)
+        return match.group(0)
+
+    # Regex looks for {tag_name}
+    return re.sub(r"{([\w_]+)}", replacer, text)
 
 
 class CustomizablePromptGenerator:
@@ -81,9 +93,8 @@ class CustomizablePromptGenerator:
 
     @classmethod
     def INPUT_TYPES(cls):
-        categories = get_available_categories()
+        categories = _load_categories_from_disk()
         templates = get_templates()
-
 
         template_list = list(templates.keys()) if templates else ["Default"]
 
@@ -118,18 +129,18 @@ class CustomizablePromptGenerator:
         all_templates = get_templates()
         current_template = all_templates.get(template, list(all_templates.values())[0])
 
+        categories = _load_categories_from_disk()
+
         rng = random.Random(seed)
 
         # 1. Resolve Selections
         selected_values = {"custom_text": custom_text}
-        categories = get_available_categories()
 
         for key, value in kwargs.items():
             if value == "disabled":
                 selected_values[key] = ""
             elif value == "random":
                 options = categories.get(key, [])
-
                 if options:
                     selected_values[key] = rng.choice(options)
                 else:
@@ -144,9 +155,7 @@ class CustomizablePromptGenerator:
         final_parts = []
 
         for segment in structure_order:
-
-            # If a user puts "BREAK" in the template, it should pass through to CLIP.
-
+            # Check if segment is a placeholder like "{subject}"
             key_match = re.search(r"^{([\w_]+)}$", segment)
 
             if key_match:
@@ -154,26 +163,28 @@ class CustomizablePromptGenerator:
                 value = selected_values.get(key, "")
 
                 if value:
+                    # E.g. if Subject is "a {body_type} warrior", resolve {body_type} now
+                    value = resolve_wildcards(value, categories, rng)
+
                     if key in formatting_rules:
                         fmt = formatting_rules[key]
                         final_parts.append(fmt.replace("{value}", value))
                     else:
                         final_parts.append(value)
 
-
-            # or keys that were not in kwargs (e.g. from a file that was deleted)
+            # Or if it's a key that matches a category name directly but wasn't wrapped in {} in the structure
+            # (Handling backward compatibility or loose structure definitions)
             elif segment in selected_values:
                 val = selected_values[segment]
                 if val:
+                    val = resolve_wildcards(val, categories, rng)
                     final_parts.append(val)
             else:
-                # Pass through static text (e.g. "masterpiece", "BREAK", "art by")
+                # Pass through static text (e.g. "masterpiece", "BREAK")
                 final_parts.append(segment)
 
         # 3. Assemble and Clean
         full_string = " ".join(final_parts)
-
-
 
         # 1. Replace multiple spaces
         full_string = re.sub(r"\s+", " ", full_string)
@@ -183,8 +194,7 @@ class CustomizablePromptGenerator:
             r"\b(and|with|wearing|in|of)\s+([,.:;])", r"\2", full_string
         )
 
-
-        # Keep the second one usually makes more sense in English grammar flow here
+        # 3. Remove duplicate connectors
         full_string = re.sub(
             r"\b(and|with|wearing|in)\s+(and|with|wearing|in)\b", r"\2", full_string
         )
@@ -197,7 +207,6 @@ class CustomizablePromptGenerator:
 
         # 6. Fix double punctuation (e.g. "foo,, bar") -> "foo, bar"
         full_string = re.sub(r"([,.:;])\1+", r"\1", full_string)
-
 
         full_string = re.sub(r"\(\s*\)", "", full_string)
 
