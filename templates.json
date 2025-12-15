@@ -21,7 +21,7 @@
         ],
         "formatting": {
             "subject": "{value}",
-            "body_type": "{value} physique",
+            "body_type": "{value}",
             "hair": "with {value} hair",
             "emotions": "expression: {value}",
             "clothing_top_color": "{value}",
@@ -53,7 +53,7 @@
         ],
         "formatting": {
             "subject": "{value}",
-            "body_type": "{value} build",
+            "body_type": "{value}",
             "clothing_top": "{value}",
             "accessories": "with {value}",
             "background": "background: {value}",
@@ -82,7 +82,7 @@
         ],
         "formatting": {
             "subject": "of {value}",
-            "body_type": "{value} physique",
+            "body_type": "{value}",
             "hair": "with {value} hair",
             "emotions": "{value} expression",
             "clothing_top_color": "{value}",
