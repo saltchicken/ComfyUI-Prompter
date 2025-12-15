@@ -5,6 +5,7 @@
             "{subject}",
             "{body_type}",
             "{hair}",
+            "{emotions}",
             "wearing",
             "{clothing_top_color}",
             "{clothing_top}",
@@ -15,12 +16,14 @@
             "{pose}",
             "{background}",
             "{lighting}",
+            "{camera}",
             "{style}"
         ],
         "formatting": {
             "subject": "{value}",
             "body_type": "{value} physique",
             "hair": "with {value} hair",
+            "emotions": "expression: {value}",
             "clothing_top_color": "{value}",
             "clothing_top": "{value}",
             "clothing_bottom_color": "{value}",
@@ -29,6 +32,7 @@
             "pose": "{value}",
             "background": "in {value}",
             "lighting": "lit by {value}",
+            "camera": "shot on {value}",
             "style": "{value}"
         }
     },
@@ -44,6 +48,7 @@
             "BREAK",
             "{background}",
             "{lighting}",
+            "{camera}",
             "{style}"
         ],
         "formatting": {
@@ -53,6 +58,7 @@
             "accessories": "with {value}",
             "background": "background: {value}",
             "lighting": "lighting: {value}",
+            "camera": "view: {value}",
             "style": "style: {value}"
         }
     },
@@ -63,6 +69,7 @@
             "{subject}",
             "{body_type}",
             "{hair}",
+            "{emotions}",
             "wearing",
             "{clothing_top_color}",
             "{clothing_top}",
@@ -70,19 +77,44 @@
             "{pose}",
             "{background}",
             "{lighting}",
+            "{camera}",
             "{style}"
         ],
         "formatting": {
             "subject": "of {value}",
             "body_type": "{value} physique",
             "hair": "with {value} hair",
+            "emotions": "looking {value}",
             "clothing_top_color": "{value}",
             "clothing_top": "{value}",
             "accessories": "accessorized with {value}",
             "pose": "{value}",
             "background": "in {value}",
             "lighting": "lit by {value}",
+            "camera": "shot with {value}",
             "style": "{value}"
+        }
+    },
+    "Artistic Style": {
+        "structure": [
+            "masterpiece art",
+            "custom_text",
+            "{subject}",
+            "{emotions}",
+            "{clothing}",
+            "{pose}",
+            "{background}",
+            "{artists}",
+            "{style}"
+        ],
+        "formatting": {
+            "subject": "{value}",
+            "emotions": "looking {value}",
+            "clothing": "wearing {value}",
+            "pose": "{value}",
+            "background": "in {value}",
+            "artists": "art by {value}",
+            "style": "in {value} style"
         }
     },
     "Simple Character": {
@@ -102,12 +134,14 @@
         "structure": [
             "{background}",
             "{lighting}",
+            "{camera}",
             "custom_text",
             "{style}"
         ],
         "formatting": {
             "background": "{value}",
             "lighting": "{value}",
+            "camera": "shot with {value}",
             "style": "{value}"
         }
     }
