@@ -2,11 +2,17 @@ import os
 import json
 import random
 import re
+import logging
+
+
+logging.basicConfig(
+    level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+)
+logger = logging.getLogger("CustomizablePromptGenerator")
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates.json")
-
 
 _CACHE = {"categories": None, "templates": None}
 
@@ -19,7 +25,8 @@ def load_json(path):
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception as e:
-        print(f"Error loading {path}: {e}")
+
+        logger.error(f"Error loading {path}: {e}")
         return {}
 
 
@@ -39,8 +46,16 @@ def _load_categories_from_disk():
         if filename.endswith(".json"):
             category_name = filename[:-5]
             data = load_json(os.path.join(DATA_DIR, filename))
+
+
+            # Ensure we only load lists, ignoring config objects or other JSON types
             if isinstance(data, list):
-                categories[category_name] = data
+                # Filter out empty strings just in case
+                clean_data = [str(item) for item in data if str(item).strip()]
+                categories[category_name] = clean_data
+            else:
+                logger.warning(f"Skipping {filename}: content is not a list.")
+
     return categories
 
 
@@ -69,10 +84,13 @@ class CustomizablePromptGenerator:
         categories = get_available_categories()
         templates = get_templates()
 
+
+        template_list = list(templates.keys()) if templates else ["Default"]
+
         inputs = {
             "required": {
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
-                "template": (list(templates.keys()),),
+                "template": (template_list,),
                 "custom_text": (
                     "STRING",
                     {
@@ -111,6 +129,7 @@ class CustomizablePromptGenerator:
                 selected_values[key] = ""
             elif value == "random":
                 options = categories.get(key, [])
+
                 if options:
                     selected_values[key] = rng.choice(options)
                 else:
@@ -125,8 +144,8 @@ class CustomizablePromptGenerator:
         final_parts = []
 
         for segment in structure_order:
-            if segment in ["BREAK_CLIPG", "BREAK_CLIPL"]:
-                continue
+
+            # If a user puts "BREAK" in the template, it should pass through to CLIP.
 
             key_match = re.search(r"^{([\w_]+)}$", segment)
 
@@ -141,33 +160,48 @@ class CustomizablePromptGenerator:
                     else:
                         final_parts.append(value)
 
+
+            # or keys that were not in kwargs (e.g. from a file that was deleted)
             elif segment in selected_values:
                 val = selected_values[segment]
                 if val:
                     final_parts.append(val)
             else:
+                # Pass through static text (e.g. "masterpiece", "BREAK", "art by")
                 final_parts.append(segment)
 
         # 3. Assemble and Clean
         full_string = " ".join(final_parts)
 
-        # --- ‼️ UPDATED CLEANUP LOGIC FOR CONNECTORS ---
+
+
         # 1. Replace multiple spaces
         full_string = re.sub(r"\s+", " ", full_string)
 
-        # 2. ‼️ Remove dangling connectors before punctuation (e.g. "wearing ,")
-        full_string = re.sub(r"\b(and|with|wearing|in)\s+([,.:;])", r"\2", full_string)
+        # 2. Remove connectors before punctuation (e.g. "wearing ,")
+        full_string = re.sub(
+            r"\b(and|with|wearing|in|of)\s+([,.:;])", r"\2", full_string
+        )
 
-        # 3. ‼️ Remove connectors at the end of string
-        full_string = re.sub(r"\s+\b(and|with|wearing|in)\s*$", "", full_string)
 
-        # 4. Fix space before punctuation
+        # Keep the second one usually makes more sense in English grammar flow here
+        full_string = re.sub(
+            r"\b(and|with|wearing|in)\s+(and|with|wearing|in)\b", r"\2", full_string
+        )
+
+        # 4. Remove connectors at the end of string
+        full_string = re.sub(r"\s+\b(and|with|wearing|in|of)\s*$", "", full_string)
+
+        # 5. Fix space before punctuation (e.g. "foo , bar") -> "foo, bar"
         full_string = re.sub(r"\s+([,.:;])", r"\1", full_string)
 
-        # 5. Fix double punctuation
+        # 6. Fix double punctuation (e.g. "foo,, bar") -> "foo, bar"
         full_string = re.sub(r"([,.:;])\1+", r"\1", full_string)
 
-        # 6. Clean leading/trailing punctuation/spaces
+
+        full_string = re.sub(r"\(\s*\)", "", full_string)
+
+        # 8. Clean leading/trailing punctuation/spaces
         full_string = full_string.strip(" ,.:;")
 
         return (full_string,)

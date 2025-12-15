@@ -32,6 +32,30 @@
             "style": "{value}"
         }
     },
+    "Cyberpunk Sci-Fi": {
+        "structure": [
+            "sci-fi concept art",
+            "custom_text",
+            "{subject}",
+            "{body_type}",
+            "wearing futuristic",
+            "{clothing_top}",
+            "{accessories}",
+            "BREAK",
+            "{background}",
+            "{lighting}",
+            "{style}"
+        ],
+        "formatting": {
+            "subject": "{value}",
+            "body_type": "{value} build",
+            "clothing_top": "{value}",
+            "accessories": "with {value}",
+            "background": "background: {value}",
+            "lighting": "lighting: {value}",
+            "style": "style: {value}"
+        }
+    },
     "Portrait Focus": {
         "structure": [
             "close up bust shot portrait",
