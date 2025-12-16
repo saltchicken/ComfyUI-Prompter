@@ -14,76 +14,137 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 TEMPLATE_PATH = os.path.join(BASE_DIR, "templates.json")
 
 
-# We only cache templates now as they are less likely to change frequently during runtime.
-_TEMPLATE_CACHE = None
+# Compiling them once here is faster than re-compiling inside the execution loop.
+WILDCARD_REGEX = re.compile(r"{([\w_]+)}")
+CLEAN_MULTIPLE_SPACES = re.compile(r"\s+")
+CLEAN_DANGLING_CONNECTORS = re.compile(
+    r"\s+\b(and|with|wearing|in|of)\s*$", re.IGNORECASE
+)
+CLEAN_BAD_PUNCTUATION_SPACES = re.compile(r"\s+([,.:;])")
+CLEAN_DUPLICATE_PUNCTUATION = re.compile(r"([,.:;])\1+")
+CLEAN_EMPTY_PARENTHESES = re.compile(r"\(\s*\)")
 
 
-def load_json(path):
-    """Safe JSON loader."""
-    if not os.path.exists(path):
-        return {}
-    try:
-        with open(path, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except Exception as e:
-        logger.error(f"Error loading {path}: {e}")
-        return {}
+CLEAN_DUPLICATE_CONNECTORS = re.compile(
+    r"\b(and|with|wearing|in)\s+(and|with|wearing|in)\b", re.IGNORECASE
+)
+
+CLEAN_CONNECTOR_BEFORE_PUNCTUATION = re.compile(
+    r"\b(and|with|wearing|in|of)\s+([,.:;])", re.IGNORECASE
+)
 
 
-def _load_categories_from_disk():
-    """Internal function to scan disk for categories."""
-    categories = {}
-    if not os.path.exists(DATA_DIR):
-        os.makedirs(DATA_DIR)
+class DataManager:
+    """
+    ‼️ UPDATED: Singleton class now handles Auto-Reloading.
+    It checks file modification times to reload data without restarting ComfyUI.
+    """
 
-    for filename in os.listdir(DATA_DIR):
-        if filename.endswith(".json"):
-            category_name = filename[:-5]
-            data = load_json(os.path.join(DATA_DIR, filename))
+    _instance = None
 
-            # Ensure we only load lists
-            if isinstance(data, list):
-                clean_data = [str(item) for item in data if str(item).strip()]
-                categories[category_name] = clean_data
-            else:
-                logger.warning(f"Skipping {filename}: content is not a list.")
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super(DataManager, cls).__new__(cls)
+            cls._instance.categories = {}
+            cls._instance.templates = {}
+            cls._instance.loaded = False
+            cls._instance.file_timestamps = {}
+        return cls._instance
 
-    return categories
+    def _get_file_timestamp(self, path):
+        """‼️ NEW: Helper to get modification time."""
+        try:
+            return os.path.getmtime(path)
+        except OSError:
+            return 0
 
+    def check_for_updates(self):
+        """‼️ NEW: Checks if any JSON files have been modified."""
+        has_changes = False
 
-def get_templates():
-    global _TEMPLATE_CACHE
-    if _TEMPLATE_CACHE is None:
-        data = load_json(TEMPLATE_PATH)
-        # Handle legacy format
-        if "structure" in data:
-            _TEMPLATE_CACHE = {"Default": data}
+        # Check template file
+        tpl_mtime = self._get_file_timestamp(TEMPLATE_PATH)
+        if tpl_mtime != self.file_timestamps.get(TEMPLATE_PATH, 0):
+            has_changes = True
+
+        # Check data directory
+        if os.path.exists(DATA_DIR):
+            for filename in os.listdir(DATA_DIR):
+                if filename.endswith(".json"):
+                    file_path = os.path.join(DATA_DIR, filename)
+                    mtime = self._get_file_timestamp(file_path)
+                    if mtime != self.file_timestamps.get(file_path, 0):
+                        has_changes = True
+
+        if has_changes:
+            logger.info("Changes detected in data files. Reloading...")
+            self.load_data(force=True)
+
+    def load_data(self, force=False):
+        """‼️ UPDATED: Loads data from disk. Added 'force' parameter."""
+        if self.loaded and not force:
+            return
+
+        logger.info(f"Loading data from {DATA_DIR}...")
+
+        # Reset storage
+        self.categories = {}
+        self.file_timestamps = {}  # Update timestamps during load
+
+        # Load Categories
+        if not os.path.exists(DATA_DIR):
+            os.makedirs(DATA_DIR)
+
+        for filename in os.listdir(DATA_DIR):
+            if filename.endswith(".json"):
+                category_name = filename[:-5]
+                file_path = os.path.join(DATA_DIR, filename)
+
+                self.file_timestamps[file_path] = self._get_file_timestamp(file_path)
+
+                data = self._safe_load_json(file_path)
+
+                if isinstance(data, list):
+                    clean_data = [str(item) for item in data if str(item).strip()]
+                    self.categories[category_name] = clean_data
+                else:
+                    logger.warning(f"Skipping {filename}: content is not a list.")
+
+        # Load Templates
+
+        self.file_timestamps[TEMPLATE_PATH] = self._get_file_timestamp(TEMPLATE_PATH)
+        template_data = self._safe_load_json(TEMPLATE_PATH)
+
+        if not template_data:
+            logger.warning("Templates empty or missing. Using fallback.")
+            template_data = {
+                "Fallback": {
+                    "structure": ["custom_text", "{subject}", "{style}"],
+                    "formatting": {},
+                }
+            }
+
+        # Handle legacy format where "structure" might be at root
+        if "structure" in template_data:
+            self.templates = {"Default": template_data}
         else:
-            _TEMPLATE_CACHE = data
-    return _TEMPLATE_CACHE
+            self.templates = template_data
+
+        self.loaded = True
+
+    def _safe_load_json(self, path):
+        if not os.path.exists(path):
+            return {}
+        try:
+            with open(path, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            logger.error(f"Error loading {path}: {e}")
+            return {}
 
 
-# This allows a value in "clothing.json" to be "a {color} dress" and have {color} resolved automatically.
-def resolve_wildcards(text, categories, rng, depth=0):
-    if depth > 10:  # Prevent infinite loops
-        return text
-
-    def replacer(match):
-        key = match.group(1)
-        # Check if the key exists in our loaded categories
-        if key in categories:
-            options = categories[key]
-            if options:
-                # Pick a random option
-                choice = rng.choice(options)
-
-                return resolve_wildcards(choice, categories, rng, depth + 1)
-
-        # If key not found, leave it alone (it might be a syntax for another node)
-        return match.group(0)
-
-    # Regex looks for {tag_name}
-    return re.sub(r"{([\w_]+)}", replacer, text)
+# Instantiate the manager once
+data_manager = DataManager()
 
 
 class CustomizablePromptGenerator:
@@ -93,8 +154,12 @@ class CustomizablePromptGenerator:
 
     @classmethod
     def INPUT_TYPES(cls):
-        categories = _load_categories_from_disk()
-        templates = get_templates()
+        data_manager.check_for_updates()
+        if not data_manager.loaded:
+            data_manager.load_data()
+
+        categories = data_manager.categories
+        templates = data_manager.templates
 
         template_list = list(templates.keys()) if templates else ["Default"]
 
@@ -110,20 +175,19 @@ class CustomizablePromptGenerator:
                         "placeholder": "Optional custom text to inject...",
                     },
                 ),
+                "log_prompt": (
+                    "BOOLEAN",
+                    {"default": False, "label_on": "Yes", "label_off": "No"},
+                ),
             },
             "optional": {},
         }
 
-
-        # This ensures 'instructions' defaults to 'clothed' instead of 'disabled'.
         default_overrides = {"instructions": "clothed"}
 
         for cat_name, items in sorted(categories.items()):
             options = ["disabled", "random"] + sorted(items)
-
-
             default_val = default_overrides.get(cat_name, "disabled")
-
 
             if default_val not in options:
                 default_val = "disabled"
@@ -137,13 +201,10 @@ class CustomizablePromptGenerator:
     FUNCTION = "execute"
     CATEGORY = "Prompt/Custom"
 
-    def execute(self, seed, custom_text, template, **kwargs):
-        all_templates = get_templates()
+    def execute(self, seed, custom_text, template, log_prompt, **kwargs):
+        all_templates = data_manager.templates
         current_template = all_templates.get(template, list(all_templates.values())[0])
-
-        categories = _load_categories_from_disk()
-
-        # rng = random.Random(seed)
+        categories = data_manager.categories
 
         # 1. Resolve Selections
         selected_values = {"custom_text": custom_text}
@@ -154,11 +215,10 @@ class CustomizablePromptGenerator:
             elif value == "random":
                 options = categories.get(key, [])
                 if options:
+                    # This ensures that changing 'Subject' random roll doesn't change 'Lighting' random roll.
                     field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
                     field_rng = random.Random(field_seed)
-
-                    choice = field_rng.choice(options)
-                    selected_values[key] = choice
+                    selected_values[key] = field_rng.choice(options)
                 else:
                     selected_values[key] = ""
             else:
@@ -171,20 +231,19 @@ class CustomizablePromptGenerator:
         final_parts = []
 
         for segment in structure_order:
-            # Check if segment is a placeholder like "{subject}"
-            key_match = re.search(r"^{([\w_]+)}$", segment)
+            # Check for placeholders like "{subject}"
+            key_match = WILDCARD_REGEX.search(segment)
 
             if key_match:
                 key = key_match.group(1)
                 value = selected_values.get(key, "")
 
                 if value:
-                    # This ensures wildcards inside a field resolve consistently even if other fields change
+                    # Re-create the RNG for the recursive resolution to maintain per-field stability
                     field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
                     field_rng = random.Random(field_seed)
 
-                    # E.g. if Subject is "a {body_type} warrior", resolve {body_type} now
-                    value = resolve_wildcards(value, categories, field_rng)
+                    value = self._resolve_wildcards(value, categories, field_rng)
 
                     if key in formatting_rules:
                         fmt = formatting_rules[key]
@@ -192,50 +251,69 @@ class CustomizablePromptGenerator:
                     else:
                         final_parts.append(value)
 
-            # Or if it's a key that matches a category name directly but wasn't wrapped in {} in the structure
-            # (Handling backward compatibility or loose structure definitions)
             elif segment in selected_values:
+                # Handle direct key references (legacy support)
                 val = selected_values[segment]
                 if val:
                     field_seed = seed + sum(
                         ord(c) * (i + 1) for i, c in enumerate(segment)
                     )
                     field_rng = random.Random(field_seed)
-
-                    val = resolve_wildcards(val, categories, field_rng)
+                    val = self._resolve_wildcards(val, categories, field_rng)
                     final_parts.append(val)
             else:
-                # Pass through static text (e.g. "masterpiece", "BREAK")
+                # Static text
                 final_parts.append(segment)
 
         # 3. Assemble and Clean
         full_string = " ".join(final_parts)
+        full_string = self._clean_prompt(full_string)
 
-        # 1. Replace multiple spaces
-        full_string = re.sub(r"\s+", " ", full_string)
-
-        # 2. Remove connectors before punctuation (e.g. "wearing ,")
-        full_string = re.sub(
-            r"\b(and|with|wearing|in|of)\s+([,.:;])", r"\2", full_string
-        )
-
-        # 3. Remove duplicate connectors
-        full_string = re.sub(
-            r"\b(and|with|wearing|in)\s+(and|with|wearing|in)\b", r"\2", full_string
-        )
-
-        # 4. Remove connectors at the end of string
-        full_string = re.sub(r"\s+\b(and|with|wearing|in|of)\s*$", "", full_string)
-
-        # 5. Fix space before punctuation (e.g. "foo , bar") -> "foo, bar"
-        full_string = re.sub(r"\s+([,.:;])", r"\1", full_string)
-
-        # 6. Fix double punctuation (e.g. "foo,, bar") -> "foo, bar"
-        full_string = re.sub(r"([,.:;])\1+", r"\1", full_string)
-
-        full_string = re.sub(r"\(\s*\)", "", full_string)
-
-        # 8. Clean leading/trailing punctuation/spaces
-        full_string = full_string.strip(" ,.:;")
+        if log_prompt:
+            logger.info(f"Generated Prompt: {full_string}")
 
         return (full_string,)
+
+    def _resolve_wildcards(self, text, categories, rng, depth=0):
+        """Recursively resolves {wildcards} in the text."""
+        if depth > 10:
+            return text
+
+        def replacer(match):
+            key = match.group(1)
+            if key in categories:
+                options = categories[key]
+                if options:
+                    choice = rng.choice(options)
+                    return self._resolve_wildcards(choice, categories, rng, depth + 1)
+            return match.group(0)
+
+        return WILDCARD_REGEX.sub(replacer, text)
+
+    def _clean_prompt(self, text):
+        """
+        Dedicated cleaning pipeline.
+        """
+        # Replace multiple spaces with single space
+        text = CLEAN_MULTIPLE_SPACES.sub(" ", text)
+
+        # Remove connectors before punctuation (e.g. "wearing ,") -> ","
+        text = CLEAN_CONNECTOR_BEFORE_PUNCTUATION.sub(r"\2", text)
+
+        # Remove duplicate connectors (e.g. "wearing wearing") -> "wearing"
+        text = CLEAN_DUPLICATE_CONNECTORS.sub(r"\2", text)
+
+        # Remove connectors at the end of string
+        text = CLEAN_DANGLING_CONNECTORS.sub("", text)
+
+        # Fix space before punctuation (e.g. "foo , bar") -> "foo, bar"
+        text = CLEAN_BAD_PUNCTUATION_SPACES.sub(r"\1", text)
+
+        # Fix double punctuation (e.g. "foo,, bar") -> "foo, bar"
+        text = CLEAN_DUPLICATE_PUNCTUATION.sub(r"\1", text)
+
+        # Remove empty parentheses
+        text = CLEAN_EMPTY_PARENTHESES.sub("", text)
+
+        return text.strip(" ,.:;")
+
