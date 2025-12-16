@@ -3,6 +3,7 @@
         "structure": [
             "custom_text",
             "{subject}",
+            "{instructions}",
             "{body_type}",
             "{hair}",
             "{emotions}",
@@ -21,6 +22,7 @@
         ],
         "formatting": {
             "subject": "{value}",
+            "instructions": "{value}",
             "body_type": "{value}",
             "hair": "with {value} hair",
             "emotions": "expression: {value}",
@@ -41,6 +43,7 @@
             "sci-fi concept art",
             "custom_text",
             "{subject}",
+            "{instructions}",
             "{body_type}",
             "wearing futuristic",
             "{clothing_top}",
@@ -53,6 +56,7 @@
         ],
         "formatting": {
             "subject": "{value}",
+            "instructions": "{value}",
             "body_type": "{value}",
             "clothing_top": "{value}",
             "accessories": "with {value}",
@@ -67,6 +71,7 @@
             "close up bust shot portrait",
             "custom_text",
             "{subject}",
+            "{instructions}",
             "{body_type}",
             "{hair}",
             "{emotions}",
@@ -82,6 +87,7 @@
         ],
         "formatting": {
             "subject": "of {value}",
+            "instructions": "{value}",
             "body_type": "{value}",
             "hair": "with {value} hair",
             "emotions": "{value} expression",
@@ -100,6 +106,7 @@
             "masterpiece art",
             "custom_text",
             "{subject}",
+            "{instructions}",
             "{emotions}",
             "wearing",
             "{clothing_top}",
@@ -112,6 +119,7 @@
         ],
         "formatting": {
             "subject": "{value}",
+            "instructions": "{value}",
             "emotions": "{value} expression",
             "clothing_top": "{value}",
             "clothing_bottom": "{value}",
@@ -125,6 +133,7 @@
         "structure": [
             "custom_text",
             "{subject}",
+            "{instructions}",
             "wearing",
             "{clothing_top}",
             "and",
@@ -133,6 +142,7 @@
         ],
         "formatting": {
             "subject": "{value}",
+            "instructions": "{value}",
             "clothing_top": "{value}",
             "clothing_bottom": "{value}",
             "style": "art style: {value}"

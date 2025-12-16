@@ -114,9 +114,21 @@ class CustomizablePromptGenerator:
             "optional": {},
         }
 
+        # ‼️ Added a dictionary to define default values for specific categories.
+        # This ensures 'instructions' defaults to 'clothed' instead of 'disabled'.
+        default_overrides = {"instructions": "clothed"}
+
         for cat_name, items in sorted(categories.items()):
             options = ["disabled", "random"] + sorted(items)
-            inputs["optional"][cat_name] = (options, {"default": "disabled"})
+
+            # ‼️ Check if there is an override for this category, otherwise use "disabled"
+            default_val = default_overrides.get(cat_name, "disabled")
+
+            # ‼️ Safety check: ensure the default value actually exists in the options
+            if default_val not in options:
+                default_val = "disabled"
+
+            inputs["optional"][cat_name] = (options, {"default": default_val})
 
         return inputs
 
@@ -131,7 +143,6 @@ class CustomizablePromptGenerator:
 
         categories = _load_categories_from_disk()
 
-
         # rng = random.Random(seed)
 
         # 1. Resolve Selections
@@ -143,7 +154,6 @@ class CustomizablePromptGenerator:
             elif value == "random":
                 options = categories.get(key, [])
                 if options:
-
                     field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
                     field_rng = random.Random(field_seed)
 
@@ -169,7 +179,6 @@ class CustomizablePromptGenerator:
                 value = selected_values.get(key, "")
 
                 if value:
-
                     # This ensures wildcards inside a field resolve consistently even if other fields change
                     field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
                     field_rng = random.Random(field_seed)
@@ -188,7 +197,6 @@ class CustomizablePromptGenerator:
             elif segment in selected_values:
                 val = selected_values[segment]
                 if val:
-
                     field_seed = seed + sum(
                         ord(c) * (i + 1) for i, c in enumerate(segment)
                     )
