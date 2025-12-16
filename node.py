@@ -114,17 +114,17 @@ class CustomizablePromptGenerator:
             "optional": {},
         }
 
-        # ‼️ Added a dictionary to define default values for specific categories.
+
         # This ensures 'instructions' defaults to 'clothed' instead of 'disabled'.
         default_overrides = {"instructions": "clothed"}
 
         for cat_name, items in sorted(categories.items()):
             options = ["disabled", "random"] + sorted(items)
 
-            # ‼️ Check if there is an override for this category, otherwise use "disabled"
+
             default_val = default_overrides.get(cat_name, "disabled")
 
-            # ‼️ Safety check: ensure the default value actually exists in the options
+
             if default_val not in options:
                 default_val = "disabled"
 
