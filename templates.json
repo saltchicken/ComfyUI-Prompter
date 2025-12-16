@@ -101,7 +101,10 @@
             "custom_text",
             "{subject}",
             "{emotions}",
-            "{clothing}",
+            "wearing",
+            "{clothing_top}",
+            "and",
+            "{clothing_bottom}",
             "{pose}",
             "{background}",
             "{artists}",
@@ -110,7 +113,8 @@
         "formatting": {
             "subject": "{value}",
             "emotions": "{value} expression",
-            "clothing": "wearing {value}",
+            "clothing_top": "{value}",
+            "clothing_bottom": "{value}",
             "pose": "{value}",
             "background": "in {value}",
             "artists": "art by {value}",
@@ -121,12 +125,16 @@
         "structure": [
             "custom_text",
             "{subject}",
-            "{clothing}",
+            "wearing",
+            "{clothing_top}",
+            "and",
+            "{clothing_bottom}",
             "{style}"
         ],
         "formatting": {
             "subject": "{value}",
-            "clothing": "wearing {value}",
+            "clothing_top": "{value}",
+            "clothing_bottom": "{value}",
             "style": "art style: {value}"
         }
     },
