@@ -175,9 +175,22 @@ class CustomizablePromptGenerator:
                         "placeholder": "Optional custom text to inject...",
                     },
                 ),
+
+                "clothing_details": (
+                    "STRING",
+                    {
+                        "multiline": True,
+                        "default": "",
+                        "placeholder": "Additional clothing details...",
+                    },
+                ),
                 "log_prompt": (
                     "BOOLEAN",
-                    {"default": False, "label_on": "Yes", "label_off": "No"},
+                    {
+                        "default": False,
+                        "label_on": "Yes",
+                        "label_off": "No",
+                    },
                 ),
             },
             "optional": {},
@@ -201,13 +214,20 @@ class CustomizablePromptGenerator:
     FUNCTION = "execute"
     CATEGORY = "Prompt/Custom"
 
-    def execute(self, seed, custom_text, template, log_prompt, **kwargs):
+
+    def execute(
+        self, seed, custom_text, clothing_details, template, log_prompt, **kwargs
+    ):
         all_templates = data_manager.templates
         current_template = all_templates.get(template, list(all_templates.values())[0])
         categories = data_manager.categories
 
         # 1. Resolve Selections
-        selected_values = {"custom_text": custom_text}
+
+        selected_values = {
+            "custom_text": custom_text,
+            "clothing_details": clothing_details,
+        }
 
         for key, value in kwargs.items():
             if value == "disabled":
@@ -316,4 +336,3 @@ class CustomizablePromptGenerator:
         text = CLEAN_EMPTY_PARENTHESES.sub("", text)
 
         return text.strip(" ,.:;")
-
