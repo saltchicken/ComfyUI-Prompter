@@ -149,6 +149,48 @@
             "style": "{value}"
         }
     },
+    "Portrait Focus (Complete Outfit)": {
+        "structure": [
+            "close up bust shot portrait",
+            "custom_text",
+            "{subject}",
+            "{instructions}",
+            "{body_type}",
+            "{hair}",
+            "{emotions}",
+            "wearing",
+            "{clothing_top_color}",
+            "{clothing_top}",
+            "and",
+            "{clothing_bottom_color}",
+            "{clothing_bottom}",
+            "{clothing_details}",
+            "{accessories}",
+            "{pose}",
+            "{background}",
+            "{lighting}",
+            "{camera}",
+            "{style}"
+        ],
+        "formatting": {
+            "subject": "of {value}",
+            "instructions": "{value}",
+            "body_type": "{value}",
+            "hair": "with {value} hair",
+            "emotions": "{value} expression",
+            "clothing_top_color": "{value}",
+            "clothing_top": "{value}",
+            "clothing_bottom_color": "{value}",
+            "clothing_bottom": "{value}",
+            "clothing_details": "{value}",
+            "accessories": "accessorized with {value}",
+            "pose": "{value}",
+            "background": "in {value}",
+            "lighting": "lit by {value}",
+            "camera": "shot with {value}",
+            "style": "{value}"
+        }
+    },
     "Artistic Style": {
         "structure": [
             "masterpiece art",
