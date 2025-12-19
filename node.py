@@ -189,8 +189,28 @@ class CustomizablePromptGenerator:
             "optional": {},
         }
 
-
-        default_overrides = {}
+        default_overrides = {
+            "accessories": "disabled",
+            "artists": "disabled",
+            "background": "a clean studio background",
+            "body_type": "random",
+            "camera": "random",
+            "clothing_bottom": "random",
+            "clothing_bottom_color": "random",
+            "clothing_bottom_details": "random",
+            "clothing_bottom_underwear": "random",
+            "clothing_top": "random",
+            "clothing_top_color": "random",
+            "clothing_top_details": "random",
+            "clothing_top_underwear": "random",
+            "emotions": "smug",
+            "gaze": "looking directly at the viewer",
+            "hair": "random",
+            "lighting": "random",
+            "pose": "standing with a neutral stance",
+            "style": "random",
+            "subject": "random",
+        }
 
         for cat_name, items in sorted(categories.items()):
             options = ["disabled", "random"] + sorted(items)
@@ -333,3 +353,4 @@ class CustomizablePromptGenerator:
         text = CLEAN_EMPTY_PARENTHESES.sub("", text)
 
         return text.strip(" ,.:;")
+
