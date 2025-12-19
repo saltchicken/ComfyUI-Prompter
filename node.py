@@ -17,20 +17,25 @@ TEMPLATE_PATH = os.path.join(BASE_DIR, "templates.json")
 # Compiling them once here is faster than re-compiling inside the execution loop.
 WILDCARD_REGEX = re.compile(r"{([\w_]+)}")
 CLEAN_MULTIPLE_SPACES = re.compile(r"\s+")
+# ‼️ Added 'paired with' to the regex to support more complex connectors if used in templates
 CLEAN_DANGLING_CONNECTORS = re.compile(
-    r"\s+\b(and|with|wearing|in|of)\s*$", re.IGNORECASE
+    r"\s+\b(and|with|wearing|in|of|paired with)\s*$", re.IGNORECASE
 )
 CLEAN_BAD_PUNCTUATION_SPACES = re.compile(r"\s+([,.:;])")
 CLEAN_DUPLICATE_PUNCTUATION = re.compile(r"([,.:;])\1+")
 CLEAN_EMPTY_PARENTHESES = re.compile(r"\(\s*\)")
 
 
+# ‼️ Added 'paired with' to duplicate check.
+# Note: Since 'paired with' has a space, this relies on the regex engine matching the longest alternation correctly.
 CLEAN_DUPLICATE_CONNECTORS = re.compile(
-    r"\b(and|with|wearing|in)\s+(and|with|wearing|in)\b", re.IGNORECASE
+    r"\b(and|with|wearing|in|paired with)\s+(and|with|wearing|in|paired with)\b",
+    re.IGNORECASE,
 )
 
+# ‼️ Added 'paired with' to punctuation check
 CLEAN_CONNECTOR_BEFORE_PUNCTUATION = re.compile(
-    r"\b(and|with|wearing|in|of)\s+([,.:;])", re.IGNORECASE
+    r"\b(and|with|wearing|in|of|paired with)\s+([,.:;])", re.IGNORECASE
 )
 
 
@@ -267,7 +272,6 @@ class CustomizablePromptGenerator:
         # This handles wildcards and ignores disabled fields
         resolved_values = {}
 
-
         for key, val in selected_values.items():
             if not val:
                 continue
@@ -286,7 +290,6 @@ class CustomizablePromptGenerator:
         template_parts = []
         selection_details_parts = []
 
-
         for i, segment in enumerate(structure_order):
             if segment == "custom_text":
                 continue
@@ -302,7 +305,6 @@ class CustomizablePromptGenerator:
                 if value:
                     # Note: Value is already fully resolved now
 
-
                     selection_details_parts.append(f"{key}: {value}")
 
                     if key in formatting_rules:
@@ -315,18 +317,14 @@ class CustomizablePromptGenerator:
                 # Handle direct key references (legacy support)
                 val = resolved_values[segment]
                 if val:
-
                     selection_details_parts.append(f"{segment}: {val}")
                     template_parts.append(val)
             else:
                 # Static text
                 template_parts.append(segment)
 
-
                 if i == 0:
-
                     selection_details_parts.append(f"template: {segment}")
-
 
         selection_details = "\n".join(selection_details_parts)
 
