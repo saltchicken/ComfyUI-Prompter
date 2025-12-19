@@ -144,7 +144,7 @@
             "clothing_top_underwear_details": ", {value}",
             "clothing_bottom_underwear_color": "{value}",
             "clothing_bottom_underwear": "{value} underwear underneath",
-            "clothing_bottom_underwear_details": ", {value}",
+            "clothing_bottom_underwear_details": " {value}",
             "clothing_top_color": "{value}",
             "clothing_top": "{value}",
             "clothing_top_details": " {value}",
