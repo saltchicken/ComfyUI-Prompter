@@ -189,7 +189,8 @@ class CustomizablePromptGenerator:
             "optional": {},
         }
 
-        default_overrides = {"instructions": "clothed"}
+        # default_overrides = {"instructions": "clothed"} ‼️ Removed instructions override
+        default_overrides = {}
 
         for cat_name, items in sorted(categories.items()):
             options = ["disabled", "random"] + sorted(items)
@@ -332,4 +333,3 @@ class CustomizablePromptGenerator:
         text = CLEAN_EMPTY_PARENTHESES.sub("", text)
 
         return text.strip(" ,.:;")
-
