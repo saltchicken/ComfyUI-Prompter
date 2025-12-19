@@ -189,7 +189,7 @@ class CustomizablePromptGenerator:
             "optional": {},
         }
 
-        # default_overrides = {"instructions": "clothed"} ‼️ Removed instructions override
+
         default_overrides = {}
 
         for cat_name, items in sorted(categories.items()):
