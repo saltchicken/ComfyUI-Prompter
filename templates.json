@@ -2,7 +2,6 @@
     "Portrait Focus": {
         "structure": [
             "close up bust shot portrait",
-            "custom_text",
             "{subject}",
             "{instructions}",
             "{body_type}",
@@ -39,7 +38,6 @@
     "Portrait Focus (Medium Shot)": {
         "structure": [
             "medium shot portrait",
-            "custom_text",
             "{subject}",
             "{instructions}",
             "{body_type}",
@@ -83,7 +81,6 @@
     "Portrait Focus (Complete Outfit)": {
         "structure": [
             "close up bust shot portrait",
-            "custom_text",
             "{subject}",
             "{instructions}",
             "{body_type}",

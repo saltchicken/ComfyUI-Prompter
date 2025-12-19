@@ -36,7 +36,6 @@ CLEAN_CONNECTOR_BEFORE_PUNCTUATION = re.compile(
 
 class DataManager:
     """
-    ‼️ UPDATED: Singleton class now handles Auto-Reloading.
     It checks file modification times to reload data without restarting ComfyUI.
     """
 
@@ -52,14 +51,14 @@ class DataManager:
         return cls._instance
 
     def _get_file_timestamp(self, path):
-        """‼️ NEW: Helper to get modification time."""
+        """Helper to get modification time."""
         try:
             return os.path.getmtime(path)
         except OSError:
             return 0
 
     def check_for_updates(self):
-        """‼️ NEW: Checks if any JSON files have been modified."""
+        """Checks if any JSON files have been modified."""
         has_changes = False
 
         # Check template file
@@ -81,7 +80,7 @@ class DataManager:
             self.load_data(force=True)
 
     def load_data(self, force=False):
-        """‼️ UPDATED: Loads data from disk. Added 'force' parameter."""
+        """Loads data from disk. Added 'force' parameter."""
         if self.loaded and not force:
             return
 
@@ -119,7 +118,10 @@ class DataManager:
             logger.warning("Templates empty or missing. Using fallback.")
             template_data = {
                 "Fallback": {
-                    "structure": ["custom_text", "{subject}", "{style}"],
+                    "structure": [
+                        "{subject}",
+                        "{style}",
+                    ],
                     "formatting": {},
                 }
             }
@@ -172,10 +174,9 @@ class CustomizablePromptGenerator:
                     {
                         "multiline": True,
                         "default": "",
-                        "placeholder": "Optional custom text to inject...",
+                        "placeholder": "Prepended instructions (e.g. 'score_9, score_8_up, monochrome')...",
                     },
                 ),
-                # ‼️ UPDATED: Removed 'clothing_details' free text input.
                 "log_prompt": (
                     "BOOLEAN",
                     {
@@ -207,18 +208,13 @@ class CustomizablePromptGenerator:
     CATEGORY = "Prompt/Custom"
 
     def execute(self, seed, custom_text, template, log_prompt, **kwargs):
-        # ‼️ UPDATED: Removed 'clothing_details' from function signature
         all_templates = data_manager.templates
         current_template = all_templates.get(template, list(all_templates.values())[0])
         categories = data_manager.categories
 
         # 1. Resolve Selections
 
-        selected_values = {
-            "custom_text": custom_text,
-            # ‼️ UPDATED: Removed 'clothing_details' from fixed dictionary.
-            # It is now handled dynamically in the kwargs loop below.
-        }
+        selected_values = {}
 
         for key, value in kwargs.items():
             if value == "disabled":
@@ -239,9 +235,12 @@ class CustomizablePromptGenerator:
         structure_order = current_template.get("structure", [])
         formatting_rules = current_template.get("formatting", {})
 
-        final_parts = []
+        template_parts = []
 
         for segment in structure_order:
+            if segment == "custom_text":
+                continue
+
             # Check for placeholders like "{subject}"
             key_match = WILDCARD_REGEX.search(segment)
 
@@ -258,9 +257,9 @@ class CustomizablePromptGenerator:
 
                     if key in formatting_rules:
                         fmt = formatting_rules[key]
-                        final_parts.append(fmt.replace("{value}", value))
+                        template_parts.append(fmt.replace("{value}", value))
                     else:
-                        final_parts.append(value)
+                        template_parts.append(value)
 
             elif segment in selected_values:
                 # Handle direct key references (legacy support)
@@ -271,14 +270,20 @@ class CustomizablePromptGenerator:
                     )
                     field_rng = random.Random(field_seed)
                     val = self._resolve_wildcards(val, categories, field_rng)
-                    final_parts.append(val)
+                    template_parts.append(val)
             else:
                 # Static text
-                final_parts.append(segment)
+                template_parts.append(segment)
 
         # 3. Assemble and Clean
-        full_string = " ".join(final_parts)
-        full_string = self._clean_prompt(full_string)
+
+        template_string = " ".join(template_parts)
+        template_string = self._clean_prompt(template_string)
+
+        if custom_text and custom_text.strip():
+            full_string = f"{custom_text.strip()}\n\n{template_string}"
+        else:
+            full_string = template_string
 
         if log_prompt:
             logger.info(f"Generated Prompt: {full_string}")
@@ -327,3 +332,4 @@ class CustomizablePromptGenerator:
         text = CLEAN_EMPTY_PARENTHESES.sub("", text)
 
         return text.strip(" ,.:;")
+
