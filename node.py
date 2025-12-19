@@ -232,8 +232,11 @@ class CustomizablePromptGenerator:
 
         return inputs
 
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("combined_prompt",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = (
+        "combined_prompt",
+        "selection_details",
+    )
     FUNCTION = "execute"
     CATEGORY = "Prompt/Custom"
 
@@ -261,13 +264,30 @@ class CustomizablePromptGenerator:
             else:
                 selected_values[key] = value
 
-        # 2. Build Prompt Segments
+        # This handles wildcards and ignores disabled fields
+        resolved_values = {}
+
+
+        for key, val in selected_values.items():
+            if not val:
+                continue
+
+            # Deterministic RNG per field for recursive resolution
+            field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
+            field_rng = random.Random(field_seed)
+
+            final_val = self._resolve_wildcards(val, categories, field_rng)
+            resolved_values[key] = final_val
+
+        # 2. Build Prompt Segments AND Selection Details
         structure_order = current_template.get("structure", [])
         formatting_rules = current_template.get("formatting", {})
 
         template_parts = []
+        selection_details_parts = []
 
-        for segment in structure_order:
+
+        for i, segment in enumerate(structure_order):
             if segment == "custom_text":
                 continue
 
@@ -276,14 +296,14 @@ class CustomizablePromptGenerator:
 
             if key_match:
                 key = key_match.group(1)
-                value = selected_values.get(key, "")
+
+                value = resolved_values.get(key, "")
 
                 if value:
-                    # Re-create the RNG for the recursive resolution to maintain per-field stability
-                    field_seed = seed + sum(ord(c) * (i + 1) for i, c in enumerate(key))
-                    field_rng = random.Random(field_seed)
+                    # Note: Value is already fully resolved now
 
-                    value = self._resolve_wildcards(value, categories, field_rng)
+
+                    selection_details_parts.append(f"{key}: {value}")
 
                     if key in formatting_rules:
                         fmt = formatting_rules[key]
@@ -291,19 +311,24 @@ class CustomizablePromptGenerator:
                     else:
                         template_parts.append(value)
 
-            elif segment in selected_values:
+            elif segment in resolved_values:
                 # Handle direct key references (legacy support)
-                val = selected_values[segment]
+                val = resolved_values[segment]
                 if val:
-                    field_seed = seed + sum(
-                        ord(c) * (i + 1) for i, c in enumerate(segment)
-                    )
-                    field_rng = random.Random(field_seed)
-                    val = self._resolve_wildcards(val, categories, field_rng)
+
+                    selection_details_parts.append(f"{segment}: {val}")
                     template_parts.append(val)
             else:
                 # Static text
                 template_parts.append(segment)
+
+
+                if i == 0:
+
+                    selection_details_parts.append(f"template: {segment}")
+
+
+        selection_details = "\n".join(selection_details_parts)
 
         # 3. Assemble and Clean
 
@@ -318,7 +343,7 @@ class CustomizablePromptGenerator:
         if log_prompt:
             logger.info(f"Generated Prompt: {full_string}")
 
-        return (full_string,)
+        return (full_string, selection_details)
 
     def _resolve_wildcards(self, text, categories, rng, depth=0):
         """Recursively resolves {wildcards} in the text."""
@@ -365,4 +390,3 @@ class CustomizablePromptGenerator:
         text = CLEAN_EMPTY_PARENTHESES.sub("", text)
 
         return text.strip(" ,.:;")
-
