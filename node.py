@@ -165,6 +165,11 @@ class CustomizablePromptGenerator:
 
         template_list = list(templates.keys()) if templates else ["Default"]
 
+        default_template = "Portrait Focus (Complete Outfit)"
+
+        if default_template not in template_list:
+            default_template = template_list[0]
+
         inputs = {
             "required": {
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
@@ -338,8 +343,11 @@ class CustomizablePromptGenerator:
         # Replace multiple spaces with single space
         text = CLEAN_MULTIPLE_SPACES.sub(" ", text)
 
-        # Remove connectors before punctuation (e.g. "wearing ,") -> ","
-        text = CLEAN_CONNECTOR_BEFORE_PUNCTUATION.sub(r"\2", text)
+        # Remove connectors before punctuation (e.g. "wearing ,") -> "wearing"
+
+        # This prevents "wearing ," from becoming "," (losing the connector).
+        # It now becomes "wearing", which is safer if items follow, or removed later if dangling.
+        text = CLEAN_CONNECTOR_BEFORE_PUNCTUATION.sub(r"\1", text)
 
         # Remove duplicate connectors (e.g. "wearing wearing") -> "wearing"
         text = CLEAN_DUPLICATE_CONNECTORS.sub(r"\2", text)
@@ -357,3 +365,4 @@ class CustomizablePromptGenerator:
         text = CLEAN_EMPTY_PARENTHESES.sub("", text)
 
         return text.strip(" ,.:;")
+
