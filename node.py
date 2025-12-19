@@ -175,15 +175,7 @@ class CustomizablePromptGenerator:
                         "placeholder": "Optional custom text to inject...",
                     },
                 ),
-
-                "clothing_details": (
-                    "STRING",
-                    {
-                        "multiline": True,
-                        "default": "",
-                        "placeholder": "Additional clothing details...",
-                    },
-                ),
+                # ‼️ UPDATED: Removed 'clothing_details' free text input.
                 "log_prompt": (
                     "BOOLEAN",
                     {
@@ -214,10 +206,8 @@ class CustomizablePromptGenerator:
     FUNCTION = "execute"
     CATEGORY = "Prompt/Custom"
 
-
-    def execute(
-        self, seed, custom_text, clothing_details, template, log_prompt, **kwargs
-    ):
+    def execute(self, seed, custom_text, template, log_prompt, **kwargs):
+        # ‼️ UPDATED: Removed 'clothing_details' from function signature
         all_templates = data_manager.templates
         current_template = all_templates.get(template, list(all_templates.values())[0])
         categories = data_manager.categories
@@ -226,7 +216,8 @@ class CustomizablePromptGenerator:
 
         selected_values = {
             "custom_text": custom_text,
-            "clothing_details": clothing_details,
+            # ‼️ UPDATED: Removed 'clothing_details' from fixed dictionary.
+            # It is now handled dynamically in the kwargs loop below.
         }
 
         for key, value in kwargs.items():
