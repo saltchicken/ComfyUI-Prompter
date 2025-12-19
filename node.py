@@ -199,10 +199,14 @@ class CustomizablePromptGenerator:
             "clothing_bottom_color": "random",
             "clothing_bottom_details": "random",
             "clothing_bottom_underwear": "random",
+            "clothing_bottom_underwear_color": "random",
+            "clothing_bottom_underwear_details": "random",
             "clothing_top": "random",
             "clothing_top_color": "random",
             "clothing_top_details": "random",
             "clothing_top_underwear": "random",
+            "clothing_top_underwear_color": "random",
+            "clothing_top_underwear_details": "random",
             "emotions": "smug",
             "gaze": "looking directly at the viewer",
             "hair": "random",
@@ -353,4 +357,3 @@ class CustomizablePromptGenerator:
         text = CLEAN_EMPTY_PARENTHESES.sub("", text)
 
         return text.strip(" ,.:;")
-
