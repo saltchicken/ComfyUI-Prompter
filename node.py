@@ -17,7 +17,7 @@ TEMPLATE_PATH = os.path.join(BASE_DIR, "templates.json")
 # Compiling them once here is faster than re-compiling inside the execution loop.
 WILDCARD_REGEX = re.compile(r"{([\w_]+)}")
 CLEAN_MULTIPLE_SPACES = re.compile(r"\s+")
-# ‼️ Added 'paired with' to the regex to support more complex connectors if used in templates
+
 CLEAN_DANGLING_CONNECTORS = re.compile(
     r"\s+\b(and|with|wearing|in|of|paired with)\s*$", re.IGNORECASE
 )
@@ -26,14 +26,14 @@ CLEAN_DUPLICATE_PUNCTUATION = re.compile(r"([,.:;])\1+")
 CLEAN_EMPTY_PARENTHESES = re.compile(r"\(\s*\)")
 
 
-# ‼️ Added 'paired with' to duplicate check.
+
 # Note: Since 'paired with' has a space, this relies on the regex engine matching the longest alternation correctly.
 CLEAN_DUPLICATE_CONNECTORS = re.compile(
     r"\b(and|with|wearing|in|paired with)\s+(and|with|wearing|in|paired with)\b",
     re.IGNORECASE,
 )
 
-# ‼️ Added 'paired with' to punctuation check
+
 CLEAN_CONNECTOR_BEFORE_PUNCTUATION = re.compile(
     r"\b(and|with|wearing|in|of|paired with)\s+([,.:;])", re.IGNORECASE
 )
@@ -289,6 +289,10 @@ class CustomizablePromptGenerator:
 
         template_parts = []
         selection_details_parts = []
+
+
+        if custom_text and custom_text.strip():
+            selection_details_parts.append(f"custom_text: {custom_text.strip()}")
 
         for i, segment in enumerate(structure_order):
             if segment == "custom_text":
