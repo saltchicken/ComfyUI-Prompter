@@ -26,7 +26,6 @@ CLEAN_DUPLICATE_PUNCTUATION = re.compile(r"([,.:;])\1+")
 CLEAN_EMPTY_PARENTHESES = re.compile(r"\(\s*\)")
 
 
-
 # Note: Since 'paired with' has a space, this relies on the regex engine matching the longest alternation correctly.
 CLEAN_DUPLICATE_CONNECTORS = re.compile(
     r"\b(and|with|wearing|in|paired with)\s+(and|with|wearing|in|paired with)\b",
@@ -179,7 +178,7 @@ class CustomizablePromptGenerator:
             "required": {
                 "seed": ("INT", {"default": 0, "min": 0, "max": 0xFFFFFFFFFFFFFFFF}),
                 "template": (template_list,),
-                "custom_text": (
+                "instructions": (
                     "STRING",
                     {
                         "multiline": True,
@@ -245,7 +244,9 @@ class CustomizablePromptGenerator:
     FUNCTION = "execute"
     CATEGORY = "Prompt/Custom"
 
-    def execute(self, seed, custom_text, template, log_prompt, **kwargs):
+    def execute(
+        self, seed, instructions, template, log_prompt, **kwargs
+    ):
         all_templates = data_manager.templates
         current_template = all_templates.get(template, list(all_templates.values())[0])
         categories = data_manager.categories
@@ -290,12 +291,15 @@ class CustomizablePromptGenerator:
         template_parts = []
         selection_details_parts = []
 
-
-        if custom_text and custom_text.strip():
-            selection_details_parts.append(f"custom_text: {custom_text.strip()}")
+        if (
+            instructions and instructions.strip()
+        ):
+            selection_details_parts.append(
+                f"instructions: {instructions.strip()}"
+            )
 
         for i, segment in enumerate(structure_order):
-            if segment == "custom_text":
+            if segment == "instructions":
                 continue
 
             # Check for placeholders like "{subject}"
@@ -337,8 +341,10 @@ class CustomizablePromptGenerator:
         template_string = " ".join(template_parts)
         template_string = self._clean_prompt(template_string)
 
-        if custom_text and custom_text.strip():
-            full_string = f"{custom_text.strip()}\n\n{template_string}"
+        if (
+            instructions and instructions.strip()
+        ):
+            full_string = f"{instructions.strip()}\n\n{template_string}"
         else:
             full_string = template_string
 
