@@ -244,9 +244,7 @@ class CustomizablePromptGenerator:
     FUNCTION = "execute"
     CATEGORY = "Prompt/Custom"
 
-    def execute(
-        self, seed, instructions, template, log_prompt, **kwargs
-    ):
+    def execute(self, seed, instructions, template, log_prompt, **kwargs):
         all_templates = data_manager.templates
         current_template = all_templates.get(template, list(all_templates.values())[0])
         categories = data_manager.categories
@@ -291,12 +289,9 @@ class CustomizablePromptGenerator:
         template_parts = []
         selection_details_parts = []
 
-        if (
-            instructions and instructions.strip()
-        ):
-            selection_details_parts.append(
-                f"instructions: {instructions.strip()}"
-            )
+        if instructions and instructions.strip():
+
+            selection_details_parts.append(f"[INSTRUCTIONS]: {instructions.strip()}")
 
         for i, segment in enumerate(structure_order):
             if segment == "instructions":
@@ -313,7 +308,8 @@ class CustomizablePromptGenerator:
                 if value:
                     # Note: Value is already fully resolved now
 
-                    selection_details_parts.append(f"{key}: {value}")
+
+                    selection_details_parts.append(f"[{key.upper()}]: {value}")
 
                     if key in formatting_rules:
                         fmt = formatting_rules[key]
@@ -325,14 +321,16 @@ class CustomizablePromptGenerator:
                 # Handle direct key references (legacy support)
                 val = resolved_values[segment]
                 if val:
-                    selection_details_parts.append(f"{segment}: {val}")
+
+                    selection_details_parts.append(f"[{segment.upper()}]: {val}")
                     template_parts.append(val)
             else:
                 # Static text
                 template_parts.append(segment)
 
                 if i == 0:
-                    selection_details_parts.append(f"template: {segment}")
+
+                    selection_details_parts.append(f"[TEMPLATE]: {segment}")
 
         selection_details = "\n".join(selection_details_parts)
 
@@ -341,9 +339,7 @@ class CustomizablePromptGenerator:
         template_string = " ".join(template_parts)
         template_string = self._clean_prompt(template_string)
 
-        if (
-            instructions and instructions.strip()
-        ):
+        if instructions and instructions.strip():
             full_string = f"{instructions.strip()}\n\n{template_string}"
         else:
             full_string = template_string
