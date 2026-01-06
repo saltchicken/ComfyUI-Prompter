@@ -148,3 +148,13 @@ class PromptTemplateManager:
         if kwargs.get("save_action", False):
             return float("nan") # Always re-run if save is checked
         return kwargs.get("load_template", "None")
+
+
+# Registration
+NODE_CLASS_MAPPINGS = {
+    "PromptTemplateManager": PromptTemplateManager
+}
+
+NODE_DISPLAY_NAME_MAPPINGS = {
+    "PromptTemplateManager": "Direct Prompt Template"
+}
