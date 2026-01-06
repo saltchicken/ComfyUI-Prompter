@@ -1,7 +1,3 @@
-from .node import CustomizablePromptGenerator
+from .prompt_manager import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
 
-NODE_CLASS_MAPPINGS = {"CustomizablePromptGenerator": CustomizablePromptGenerator}
-
-NODE_DISPLAY_NAME_MAPPINGS = {"CustomizablePromptGenerator": "Image Prompter"}
-
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
+__all__ = ['NODE_CLASS_MAPPINGS', 'NODE_DISPLAY_NAME_MAPPINGS']
