@@ -1,26 +1,69 @@
 import os
+import json
 
 class PromptTemplateManager:
     """
     A ComfyUI node to manage prompt templates and associated LoRAs directly from the node UI.
-    No external JSON file required.
+    Now supports saving and loading templates from a JSON file.
     """
     
+
+    TEMPLATE_FILE = os.path.join(os.path.dirname(__file__), "templates.json")
+
     def __init__(self):
         pass
 
+
+    @classmethod
+    def _load_templates(cls):
+        if not os.path.exists(cls.TEMPLATE_FILE):
+            return {}
+        try:
+            with open(cls.TEMPLATE_FILE, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f"Error loading templates: {e}")
+            return {}
+
+
+    @classmethod
+    def _save_template_to_file(cls, name, template_text, lora_definitions):
+        templates = cls._load_templates()
+        templates[name] = {
+            "template_text": template_text,
+            "lora_definitions": lora_definitions
+        }
+        try:
+            with open(cls.TEMPLATE_FILE, 'w', encoding='utf-8') as f:
+                json.dump(templates, f, indent=4)
+            print(f"Template '{name}' saved successfully.")
+        except Exception as e:
+            print(f"Error saving template: {e}")
+
     @classmethod
     def INPUT_TYPES(cls):
-
         
+
+        templates = cls._load_templates()
+        # Sort keys and ensure 'None' is the first option
+        template_names = ["None"] + sorted(list(templates.keys()))
+
         default_template = "epic movie scene, shot on 35mm, {text}, dramatic lighting, 8k"
         default_loras = "cinematic_v1.safetensors: 0.8\nnoise_offset.safetensors: 0.3"
 
         return {
             "required": {
+
+                "load_template": (template_names, ),
+                
                 "template_text": ("STRING", {"multiline": True, "default": default_template}),
                 "lora_definitions": ("STRING", {"multiline": True, "default": default_loras}),
                 "user_text": ("STRING", {"multiline": True, "default": "insert prompt here"}),
+                
+
+                "save_template_name": ("STRING", {"default": "MyNewTemplate"}),
+                # Boolean acts as our "Button" - if True, it saves during execution
+                "save_action": ("BOOLEAN", {"default": False, "label_on": "Save on Queue", "label_off": "Don't Save"}),
             },
         }
 
@@ -29,7 +72,21 @@ class PromptTemplateManager:
     FUNCTION = "process_template"
     CATEGORY = "Custom/Prompting"
 
-    def process_template(self, template_text, lora_definitions, user_text):
+    def process_template(self, template_text, lora_definitions, user_text, load_template, save_template_name, save_action):
+
+
+        if save_action and save_template_name.strip():
+            self._save_template_to_file(save_template_name, template_text, lora_definitions)
+
+
+        if load_template != "None":
+            templates = self._load_templates()
+            if load_template in templates:
+                data = templates[load_template]
+                # Override the inputs with the saved data for processing
+                template_text = data.get("template_text", "")
+                lora_definitions = data.get("lora_definitions", "")
+                print(f"Processing with loaded template: '{load_template}'")
 
         # We replace the placeholder {text} with the user's input
         final_prompt = template_text.replace("{text}", user_text)
@@ -64,6 +121,13 @@ class PromptTemplateManager:
         lora_output = ", ".join(lora_strings) if lora_strings else "None"
 
         return (final_prompt, lora_output)
+
+
+    @classmethod
+    def IS_CHANGED(cls, **kwargs):
+        if kwargs.get("save_action", False):
+            return float("nan") # Always re-run if save is checked
+        return kwargs.get("load_template", "None")
 
 # Registration
 NODE_CLASS_MAPPINGS = {
