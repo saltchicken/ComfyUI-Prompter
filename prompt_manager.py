@@ -1,5 +1,6 @@
 import os
 import json
+import folder_paths
 
 class PromptTemplateManager:
     """
@@ -49,7 +50,9 @@ class PromptTemplateManager:
         template_names = ["None"] + sorted(list(templates.keys()))
 
         default_template = "epic movie scene, shot on 35mm, {text}, dramatic lighting, 8k"
-        default_loras = "cinematic_v1.safetensors: 0.8\nnoise_offset.safetensors: 0.3"
+        
+
+        lora_list = ["None"] + folder_paths.get_filename_list("loras")
 
         return {
             "required": {
@@ -57,7 +60,13 @@ class PromptTemplateManager:
                 "load_template": (template_names, ),
                 
                 "template_text": ("STRING", {"multiline": True, "default": default_template}),
-                "lora_definitions": ("STRING", {"multiline": True, "default": default_loras}),
+                
+
+                "lora_definitions": (lora_list, ),
+                
+
+                "lora_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
+                
                 "user_text": ("STRING", {"multiline": True, "default": "insert prompt here"}),
                 
 
@@ -72,11 +81,17 @@ class PromptTemplateManager:
     FUNCTION = "process_template"
     CATEGORY = "Custom/Prompting"
 
-    def process_template(self, template_text, lora_definitions, user_text, load_template, save_template_name, save_action):
+
+    def process_template(self, template_text, lora_definitions, user_text, load_template, save_template_name, save_action, lora_strength):
 
 
         if save_action and save_template_name.strip():
-            self._save_template_to_file(save_template_name, template_text, lora_definitions)
+            # If lora is None, save empty string, otherwise save "name: strength"
+            save_lora_str = ""
+            if lora_definitions != "None":
+                save_lora_str = f"{lora_definitions}: {lora_strength}"
+            
+            self._save_template_to_file(save_template_name, template_text, save_lora_str)
 
 
         if load_template != "None":
@@ -95,6 +110,10 @@ class PromptTemplateManager:
         # Expected format per line: "lora_name.safetensors : strength"
         lora_strings = []
         
+
+        if lora_definitions == "None":
+            lora_definitions = ""
+
         if lora_definitions.strip():
             # Split by newlines or commas
             lines = lora_definitions.replace(',', '\n').split('\n')
@@ -114,7 +133,8 @@ class PromptTemplateManager:
                         strength = 1.0 # default if parse fails
                 else:
                     name = line.strip()
-                    strength = 1.0 # default if no strength provided
+
+                    strength = lora_strength 
 
                 lora_strings.append(f"{name} (str: {strength})")
         
@@ -128,12 +148,3 @@ class PromptTemplateManager:
         if kwargs.get("save_action", False):
             return float("nan") # Always re-run if save is checked
         return kwargs.get("load_template", "None")
-
-# Registration
-NODE_CLASS_MAPPINGS = {
-    "PromptTemplateManager": PromptTemplateManager
-}
-
-NODE_DISPLAY_NAME_MAPPINGS = {
-    "PromptTemplateManager": "Direct Prompt Template"
-}
