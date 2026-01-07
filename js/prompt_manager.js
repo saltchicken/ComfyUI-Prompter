@@ -24,6 +24,7 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "PromptTemplateManager") {
             
+            // ‼️ Helper function is now crucial for the widget config
             const getLoraList = () => {
                 return cachedLoraList;
             };
@@ -32,7 +33,6 @@ app.registerExtension({
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 
-                // Truncate outputs in UI to avoid clutter
                 if (this.outputs && this.outputs.length > 1) {
                     this.outputs.length = 1;
                 }
@@ -43,23 +43,19 @@ app.registerExtension({
 
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
-                // ‼️ ADDED: Find and hide the lora_info widget (created by Python INPUT_TYPES)
                 const loraInfoWidget = this.widgets.find((w) => w.name === "lora_info");
                 if (loraInfoWidget) {
                     loraInfoWidget.type = "hidden";
-                    loraInfoWidget.computeSize = () => [0, -4]; // Shrink it visually
+                    loraInfoWidget.computeSize = () => [0, -4];
                 }
 
-                // ‼️ ADDED: Helper to sync dynamic widgets to the hidden JSON widget
                 this.updateLoraInfo = () => {
                     if (!loraInfoWidget) return;
                     
                     const loraData = [];
-                    // We scan properties.loraCount, or just scan all widgets
-                    // Scanning widgets is safer to ensure we get actual values
                     for (const w of this.widgets) {
                         if (w.name.startsWith("lora_") && w.name.endsWith("_name")) {
-                            const parts = w.name.split("_"); // lora_1_name
+                            const parts = w.name.split("_");
                             if (parts.length >= 3) {
                                 const id = parts[1];
                                 const strengthName = `lora_${id}_strength`;
@@ -73,7 +69,6 @@ app.registerExtension({
                             }
                         }
                     }
-                    // Sort by index
                     loraData.sort((a, b) => a.index - b.index);
                     loraInfoWidget.value = JSON.stringify(loraData);
                 };
@@ -101,15 +96,16 @@ app.registerExtension({
                 this.addLoraInputs = (nameValue = "None", strengthValue = 1.0) => {
                     this.properties.loraCount++;
                     const id = this.properties.loraCount;
-                    const loraList = getLoraList();
-
-                    // ‼️ CHANGED: Attached callback to update JSON when value changes
+                    
+                    // ‼️ CHANGED: Passed 'getLoraList' (the function) instead of 'loraList' (the array).
+                    // This prevents ComfyUI from validating the saved value against the empty initial array 
+                    // and resetting it to "None" on page load.
                     const wName = this.addWidget("combo", `lora_${id}_name`, "None", (v) => {
                         this.updateLoraInfo();
-                    }, { values: loraList });
+                    }, { values: getLoraList }); 
+
                     if (nameValue) wName.value = nameValue;
 
-                    // ‼️ CHANGED: Attached callback to update JSON when value changes
                     const wStrength = this.addWidget("number", `lora_${id}_strength`, strengthValue, (v) => {
                         this.updateLoraInfo();
                     }, { min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2 });
@@ -174,7 +170,6 @@ app.registerExtension({
                                 w.value = template[key];
                             }
                         }
-                        // ‼️ ADDED: Update the hidden JSON after loading a template
                         this.updateLoraInfo();
                     }
                 };
@@ -261,7 +256,6 @@ app.registerExtension({
                         }
 
                         const newTemplate = {};
-                        // Exclude buttons, load widget, and our hidden info widget
                         const exclude = ["load_template", "Add LoRA", "Save Template", "Delete Template", "lora_info"];
                         
                         this.widgets.forEach(w => {
@@ -314,7 +308,6 @@ app.registerExtension({
                     this.updateTemplateDropdown();
                 }
                 
-                // ‼️ ADDED: Sync JSON after loading from workflow
                 if (this.updateLoraInfo) {
                     this.updateLoraInfo();
                 }
