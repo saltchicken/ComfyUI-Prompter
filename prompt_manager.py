@@ -11,7 +11,7 @@ class PromptTemplateManager:
 
     @classmethod
     def INPUT_TYPES(cls):
-        # ‼️ We removed the explicit lora_1...lora_4 inputs.
+
         # They will be injected dynamically via **kwargs from the JS side.
         return {
             "required": {
@@ -20,7 +20,7 @@ class PromptTemplateManager:
             },
         }
 
-    # ‼️ We only declare the fixed "prompt" output here.
+
     # The dynamic LoRA outputs are added by the JS side, but the Python logic
     # adapts to return the correct number of values based on what was passed in.
     RETURN_TYPES = ("STRING",)
@@ -63,7 +63,7 @@ class PromptTemplateManager:
             results.append(lora_name)
             results.append(lora_strength)
 
-        # ‼️ Return tuple. length = 1 (prompt) + 2 * N (loras)
+
         # This matches the dynamic outputs created in JS.
         return tuple(results)
 

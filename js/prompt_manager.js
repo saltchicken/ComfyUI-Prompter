@@ -1,16 +1,34 @@
 import { app } from "../../scripts/app.js";
+import { api } from "../../scripts/api.js"; // ‼️ Imported api to fetch LoRA list reliably
+
+// ‼️ Global cache for LoRA names to avoid accessing LiteGraph.registered_node_definitions directly
+let cachedLoraList = ["None"];
 
 app.registerExtension({
     name: "Comfy.PromptTemplateManager",
+    
+    // ‼️ Setup method to fetch LoRA list from the server API on startup
+    async setup() {
+        try {
+            const resp = await api.fetchApi("/object_info/LoraLoader");
+            if (resp.status === 200) {
+                const data = await resp.json();
+                // Check if we got the definition for LoraLoader
+                if (data && data.LoraLoader && data.LoraLoader.input && data.LoraLoader.input.required && data.LoraLoader.input.required.lora_name) {
+                    cachedLoraList = ["None", ...data.LoraLoader.input.required.lora_name[0]];
+                }
+            }
+        } catch (error) {
+            console.error("PromptTemplateManager: Could not fetch LoRA list via API.", error);
+        }
+    },
+
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "PromptTemplateManager") {
             
+            // ‼️ Updated helper to use the cached list
             const getLoraList = () => {
-                const def = LiteGraph.registered_node_definitions["LoraLoader"];
-                if (def && def.input && def.input.required && def.input.required.lora_name) {
-                    return ["None", ...def.input.required.lora_name[0]];
-                }
-                return ["None"];
+                return cachedLoraList;
             };
 
             const onNodeCreated = nodeType.prototype.onNodeCreated;
@@ -23,7 +41,7 @@ app.registerExtension({
 
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
-                // ‼️ Helper to keep buttons at the bottom for cleaner UI
+                // Helper to keep buttons at the bottom for cleaner UI
                 this.moveButtonsToBottom = () => {
                     if(!this.widgets) return;
                     const buttons = [];
@@ -39,14 +57,14 @@ app.registerExtension({
                     this.widgets = [...others, ...buttons];
                 };
 
-                // ‼️ Logic to add a new LoRA input/output pair
+                // Logic to add a new LoRA input/output pair
                 this.addLoraInputs = (nameValue = "None", strengthValue = 1.0) => {
                     this.properties.loraCount++;
                     const id = this.properties.loraCount;
                     const loraList = getLoraList();
 
                     // 1. Add LoRA Name Widget
-                    // ‼️ FIX: Initial value is now "None" (string), not loraList (array)
+                    // Initial value is "None"
                     const wName = this.addWidget("combo", `lora_${id}_name`, "None", () => {}, { 
                         values: loraList 
                     });
@@ -65,7 +83,7 @@ app.registerExtension({
                     this.moveButtonsToBottom();
                 };
 
-                // ‼️ "Add LoRA" Button
+                // "Add LoRA" Button
                 this.addWidget("button", "Add LoRA", null, () => {
                     this.addLoraInputs();
                     // Resize node to fit new widgets, preventing weird jumps
