@@ -5,8 +5,6 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "PromptTemplateManager") {
             
-            // ‼️ Helper to get LoRA list from the standard LoraLoader definition
-            // This avoids needing a custom API endpoint, reusing what ComfyUI already knows.
             const getLoraList = () => {
                 const def = LiteGraph.registered_node_definitions["LoraLoader"];
                 if (def && def.input && def.input.required && def.input.required.lora_name) {
@@ -15,19 +13,32 @@ app.registerExtension({
                 return ["None"];
             };
 
-            // ‼️ Hook into node creation to setup properties and widgets
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 
-                // Ensure properties exist
                 if (!this.properties) this.properties = {};
                 if (!this.properties.templates) this.properties.templates = {};
-                // ‼️ Property to track how many dynamic LoRAs we have added
                 if (!this.properties.loraCount) this.properties.loraCount = 0;
 
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
+                // ‼️ Helper to keep buttons at the bottom for cleaner UI
+                this.moveButtonsToBottom = () => {
+                    if(!this.widgets) return;
+                    const buttons = [];
+                    const others = [];
+                    for(const w of this.widgets) {
+                        if(w.type === "button") {
+                            buttons.push(w);
+                        } else {
+                            others.push(w);
+                        }
+                    }
+                    // Reassemble: inputs first, buttons last
+                    this.widgets = [...others, ...buttons];
+                };
+
                 // ‼️ Logic to add a new LoRA input/output pair
                 this.addLoraInputs = (nameValue = "None", strengthValue = 1.0) => {
                     this.properties.loraCount++;
@@ -35,26 +46,29 @@ app.registerExtension({
                     const loraList = getLoraList();
 
                     // 1. Add LoRA Name Widget
-                    const wName = this.addWidget("combo", `lora_${id}_name`, loraList, () => {}, { 
+                    // ‼️ FIX: Initial value is now "None" (string), not loraList (array)
+                    const wName = this.addWidget("combo", `lora_${id}_name`, "None", () => {}, { 
                         values: loraList 
                     });
-                    wName.value = nameValue;
+                    if (nameValue) wName.value = nameValue;
 
                     // 2. Add LoRA Strength Widget
                     const wStrength = this.addWidget("float", `lora_${id}_strength`, strengthValue, () => {}, {
                         min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2
                     });
 
-                    // 3. Add Outputs (Name and Strength) to connect to other nodes
+                    // 3. Add Outputs (Name and Strength)
                     this.addOutput(`lora_${id}_name`, "STRING");
                     this.addOutput(`lora_${id}_strength`, "FLOAT");
+                    
+                    // 4. Ensure buttons stay at the bottom
+                    this.moveButtonsToBottom();
                 };
 
                 // ‼️ "Add LoRA" Button
-                // We add this *before* the Save/Delete buttons so it sits at the top or specific spot
-                // But usually buttons are added last. Let's add it now.
                 this.addWidget("button", "Add LoRA", null, () => {
                     this.addLoraInputs();
+                    // Resize node to fit new widgets, preventing weird jumps
                     this.setSize(this.computeSize());
                 });
 
@@ -70,7 +84,7 @@ app.registerExtension({
                 this.updateTemplateDropdown = updateDropdown;
                 updateDropdown();
 
-                // ‼️ Modified Template Loader
+                // Modified Template Loader
                 const originalCallback = loadWidget.callback;
                 loadWidget.callback = (value) => {
                     if (originalCallback) originalCallback(value);
@@ -78,8 +92,7 @@ app.registerExtension({
 
                     const template = this.properties.templates[value];
                     if (template) {
-                        // ‼️ Check if template has more LoRAs than current node
-                        // We count how many 'lora_X_name' keys are in the template
+                        // Check if template has more LoRAs than current node
                         let maxLoraId = 0;
                         for (const key in template) {
                             if (key.startsWith("lora_") && key.endsWith("_name")) {
@@ -95,6 +108,8 @@ app.registerExtension({
                         while (this.properties.loraCount < maxLoraId) {
                             this.addLoraInputs();
                         }
+                        
+                        this.moveButtonsToBottom();
                         this.setSize(this.computeSize());
 
                         // Apply values
@@ -190,7 +205,7 @@ app.registerExtension({
                         }
 
                         const newTemplate = {};
-                        // ‼️ Exclude buttons and load widget from saved data
+                        // Exclude buttons and load widget from saved data
                         const exclude = ["load_template", "Add LoRA", "Save Template", "Delete Template"];
                         
                         this.widgets.forEach(w => {
@@ -227,21 +242,19 @@ app.registerExtension({
                 return r;
             };
 
-            // ‼️ Configure: Restore widgets when loading workflow
+            // Configure: Restore widgets when loading workflow
             const onConfigure = nodeType.prototype.onConfigure;
             nodeType.prototype.onConfigure = function () {
                 if (onConfigure) onConfigure.apply(this, arguments);
                 
-                // If we have saved loraCount in properties, recreate the inputs
                 if (this.properties && this.properties.loraCount) {
                     const count = this.properties.loraCount;
                     // Reset internal counter because addLoraInputs increments it
                     this.properties.loraCount = 0; 
                     
                     for (let i = 0; i < count; i++) {
-                        // Values will be filled automatically by ComfyUI's deserialization 
-                        // matching widget names after we create them
-                        this.addLoraInputs();
+                        // Pass undefined to let ComfyUI restore the saved values
+                        this.addLoraInputs(undefined, undefined);
                     }
                 }
 
@@ -249,6 +262,10 @@ app.registerExtension({
                     this.updateTemplateDropdown();
                 }
                 
+                if (this.moveButtonsToBottom) {
+                    this.moveButtonsToBottom();
+                }
+
                 this.setSize(this.computeSize());
             };
         }

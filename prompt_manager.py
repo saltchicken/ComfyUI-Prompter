@@ -11,8 +11,8 @@ class PromptTemplateManager:
 
     @classmethod
     def INPUT_TYPES(cls):
-
-        # LoRA inputs will be added dynamically by the JavaScript side.
+        # ‼️ We removed the explicit lora_1...lora_4 inputs.
+        # They will be injected dynamically via **kwargs from the JS side.
         return {
             "required": {
                 "load_template": (["None"], ),
@@ -20,26 +20,24 @@ class PromptTemplateManager:
             },
         }
 
-
-    # The Python return value must match the number of outputs created in JS.
+    # ‼️ We only declare the fixed "prompt" output here.
+    # The dynamic LoRA outputs are added by the JS side, but the Python logic
+    # adapts to return the correct number of values based on what was passed in.
     RETURN_TYPES = ("STRING",)
     RETURN_NAMES = ("prompt",)
     FUNCTION = "process_template"
     CATEGORY = "Custom/Prompting"
 
+    # This allows the node to accept any inputs (like our dynamic lora widgets)
     @classmethod
     def VALIDATE_INPUTS(cls, **kwargs):
         return True
 
     def process_template(self, load_template, prompt, **kwargs):
-
-        # The JS side adds inputs named "lora_N_name" and "lora_N_strength".
-        # We need to collect them and return them in the order of the outputs.
-        
         # 1. Start with the fixed prompt output
         results = [prompt]
 
-        # 2. Find all LoRA indices from the keyword arguments
+        # 2. Find all LoRA indices from the keyword arguments (inputs)
         indices = set()
         for k in kwargs.keys():
             if k.startswith("lora_") and "_name" in k:
@@ -51,7 +49,7 @@ class PromptTemplateManager:
                 except ValueError:
                     pass
         
-        # 3. Sort indices to ensure output order matches creation order
+        # 3. Sort indices to ensure output order matches the creation order in JS
         sorted_indices = sorted(list(indices))
 
         # 4. Append Name and Strength for each LoRA
@@ -65,7 +63,8 @@ class PromptTemplateManager:
             results.append(lora_name)
             results.append(lora_strength)
 
-
+        # ‼️ Return tuple. length = 1 (prompt) + 2 * N (loras)
+        # This matches the dynamic outputs created in JS.
         return tuple(results)
 
 NODE_CLASS_MAPPINGS = {
