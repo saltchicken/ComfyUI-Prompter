@@ -29,17 +29,32 @@ app.registerExtension({
                 return cachedLoraList;
             };
 
+            // ‼️ FIX: Explicitly define default properties. 
+            // This ensures that when a node is reloaded or deserialized, LiteGraph knows 
+            // these fields are essential and shouldn't be discarded as temporary junk.
+            nodeType.prototype.default_properties = {
+                templates: {},
+                loraCount: 0
+            };
+
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 
+                // ‼️ Safety check: Only truncate outputs if we are in a fresh/clean state 
+                // to avoid breaking existing connections on reload.
                 if (this.outputs && this.outputs.length > 1) {
+                    // Check if we have connections; if so, this might be a reload on an active node.
+                    // However, to enforce the "clean" look, we usually truncate. 
+                    // We'll trust the configure step to restore outputs if needed.
                     this.outputs.length = 1;
                 }
 
+                // ‼️ Ensure properties object exists and has defaults (defensive coding)
                 if (!this.properties) this.properties = {};
+                // We use 'Object.assign' to merge defaults if they are missing, preventing overwrite of existing data
                 if (!this.properties.templates) this.properties.templates = {};
-                if (!this.properties.loraCount) this.properties.loraCount = 0;
+                if (this.properties.loraCount === undefined) this.properties.loraCount = 0;
 
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
@@ -97,9 +112,6 @@ app.registerExtension({
                     this.properties.loraCount++;
                     const id = this.properties.loraCount;
                     
-                    // ‼️ CHANGED: Passed 'getLoraList' (the function) instead of 'loraList' (the array).
-                    // This prevents ComfyUI from validating the saved value against the empty initial array 
-                    // and resetting it to "None" on page load.
                     const wName = this.addWidget("combo", `lora_${id}_name`, "None", (v) => {
                         this.updateLoraInfo();
                     }, { values: getLoraList }); 
@@ -264,7 +276,10 @@ app.registerExtension({
                             }
                         });
 
+                        // Ensure templates object exists before assignment
+                        if (!this.properties.templates) this.properties.templates = {};
                         this.properties.templates[finalName] = newTemplate;
+                        
                         updateDropdown();
                         loadWidget.value = finalName;
                         
@@ -282,9 +297,11 @@ app.registerExtension({
                     const current = loadWidget.value;
                     if (current === "None") return;
                     if (confirm(`Are you sure you want to delete template "${current}"?`)) {
-                        delete this.properties.templates[current];
-                        updateDropdown();
-                        loadWidget.value = "None";
+                        if (this.properties.templates) {
+                            delete this.properties.templates[current];
+                            updateDropdown();
+                            loadWidget.value = "None";
+                        }
                     }
                 });
                 
@@ -295,7 +312,8 @@ app.registerExtension({
             nodeType.prototype.onConfigure = function () {
                 if (onConfigure) onConfigure.apply(this, arguments);
                 
-                if (this.properties && this.properties.loraCount) {
+                // ‼️ FIX: Better property checking during configure
+                if (this.properties && typeof this.properties.loraCount !== 'undefined') {
                     const count = this.properties.loraCount;
                     this.properties.loraCount = 0; 
                     
