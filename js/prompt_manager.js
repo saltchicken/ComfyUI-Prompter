@@ -30,12 +30,7 @@ app.registerExtension({
             };
 
 
-            // This ensures that when a node is reloaded or deserialized, LiteGraph knows 
-            // these fields are essential and shouldn't be discarded as temporary junk.
-            nodeType.prototype.default_properties = {
-                templates: {},
-                loraCount: 0
-            };
+            // nodeType.prototype.default_properties = { ... }; REMOVED
 
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
@@ -51,16 +46,12 @@ app.registerExtension({
                 }
 
 
-                // Previously, we tried to break the 'templates' ref, but if 'this.properties' itself
-                // was a reference to the prototype's default object, any assignment to it would
-                // pollute all other nodes. We must reassign 'this.properties' to a fresh object.
-                if (this.properties) {
-                    this.properties = JSON.parse(JSON.stringify(this.properties));
-                } else {
+                // We use a fresh object to guarantee no references are shared.
+                if (!this.properties) {
                     this.properties = {};
                 }
-
-
+                
+                // Ensure defaults
                 if (!this.properties.templates) this.properties.templates = {};
                 if (this.properties.loraCount === undefined) this.properties.loraCount = 0;
 
@@ -116,9 +107,17 @@ app.registerExtension({
                     this.setSize([Math.max(currentSize[0], minSize[0]), minSize[1]]);
                 };
 
-                this.addLoraInputs = (nameValue = "None", strengthValue = 1.0) => {
-                    this.properties.loraCount++;
-                    const id = this.properties.loraCount;
+
+                this.addLoraInputs = (nameValue = "None", strengthValue = 1.0, restoreId = null) => {
+                    let id;
+                    if (restoreId !== null) {
+                         // We are restoring, so we trust the ID passed and DO NOT increment count
+                         id = restoreId;
+                    } else {
+                         // We are adding a new one manually
+                         this.properties.loraCount++;
+                         id = this.properties.loraCount;
+                    }
                     
                     const wName = this.addWidget("combo", `lora_${id}_name`, "None", (v) => {
                         this.updateLoraInfo();
@@ -131,8 +130,16 @@ app.registerExtension({
                     }, { min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2 });
 
 
-                    this.addOutput(`lora_${id}_name`, "COMBO");
-                    this.addOutput(`lora_${id}_strength`, "FLOAT");
+                    // This prevents the "keeps adding all outputs" bug when reloading workflows.
+                    // We expect outputs at index (id * 2) roughly (0 is prompt, 1 is Lora1_name, 2 is Lora1_str, etc)
+                    // The standard output count should be 1 + (id * 2)
+                    
+                    // Simple check: if current outputs length is less than what we need for this ID, add them.
+                    // (id * 2) gives the index of the strength output for this ID. If length is <= that, we are missing outputs.
+                    if (this.outputs.length <= (id * 2)) {
+                        this.addOutput(`lora_${id}_name`, "COMBO");
+                        this.addOutput(`lora_${id}_strength`, "FLOAT");
+                    }
                     
                     this.moveButtonsToBottom();
                     
@@ -469,10 +476,11 @@ app.registerExtension({
 
                 if (this.properties && typeof this.properties.loraCount !== 'undefined') {
                     const count = this.properties.loraCount;
-                    this.properties.loraCount = 0; 
+                    // We DO NOT set loraCount to 0 here. We simply iterate to ensure widgets exist.
+                    // The addLoraInputs 'restoreId' logic handles the rest.
                     
-                    for (let i = 0; i < count; i++) {
-                        this.addLoraInputs(undefined, undefined);
+                    for (let i = 1; i <= count; i++) {
+                        this.addLoraInputs(undefined, undefined, i);
                     }
                 }
 
