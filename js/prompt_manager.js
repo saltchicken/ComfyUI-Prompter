@@ -470,17 +470,39 @@ app.registerExtension({
             };
 
             const onConfigure = nodeType.prototype.onConfigure;
-            nodeType.prototype.onConfigure = function () {
+            nodeType.prototype.onConfigure = function (w) {
                 if (onConfigure) onConfigure.apply(this, arguments);
                 
 
                 if (this.properties && typeof this.properties.loraCount !== 'undefined') {
                     const count = this.properties.loraCount;
-                    // We DO NOT set loraCount to 0 here. We simply iterate to ensure widgets exist.
-                    // The addLoraInputs 'restoreId' logic handles the rest.
                     
+
+                    // We need to skip the static widgets (Load, Prompt, Info) to find where our LoRAs start in the saved array.
+                    // Buttons are usually not saved in widgets_values, so we filter them out.
+                    const nonButtonWidgets = this.widgets.filter(w => w.type !== "button");
+                    const startOffset = nonButtonWidgets.length;
+
                     for (let i = 1; i <= count; i++) {
-                        this.addLoraInputs(undefined, undefined, i);
+                        let nameVal = undefined;
+                        let strVal = undefined;
+                        
+
+                        // LiteGraph might not map these correctly because we are creating them dynamically right now.
+                        // We rely on the fact that dynamic widgets were added AFTER static widgets in the save file.
+                        if (w && w.widgets_values) {
+                            const nameIdx = startOffset + (i - 1) * 2;
+                            const strIdx = startOffset + (i - 1) * 2 + 1;
+                            
+                            if (w.widgets_values.length > nameIdx) nameVal = w.widgets_values[nameIdx];
+                            if (w.widgets_values.length > strIdx) strVal = w.widgets_values[strIdx];
+                        }
+                        
+                        // Fallback to defaults if undefined
+                        if (nameVal === undefined) nameVal = "None";
+                        if (strVal === undefined) strVal = 1.0;
+
+                        this.addLoraInputs(nameVal, strVal, i);
                     }
                 }
 
