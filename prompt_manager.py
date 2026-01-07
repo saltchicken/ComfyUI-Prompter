@@ -1,4 +1,5 @@
 import folder_paths
+import json
 
 # ‼️ Defined a maximum limit for dynamic LoRA outputs. 
 # This must exist to satisfy ComfyUI's backend validation.
@@ -20,11 +21,16 @@ class PromptTemplateManager:
                 "load_template": (["None"], ),
                 "prompt": ("STRING", {"multiline": True, "default": "insert prompt here"}),
             },
+            # ‼️ ADDED: A hidden input to receive the JSON blob of dynamic widgets from JS.
+            # We use "optional" to ensure it doesn't block execution if something glitches,
+            # though JS should always provide it.
+            "optional": {
+                "lora_info": ("STRING", {"default": "[]", "multiline": False}),
+            }
         }
 
     # ‼️ CHANGED: We MUST define the outputs here for validation to pass.
     # If we don't, downstream nodes like "ShowText" will crash when validating connections to dynamic ports.
-    # We will hide the unused ones in the JS side to avoid UI clutter.
     RETURN_TYPES = tuple(["STRING"] + ["STRING", "FLOAT"] * MAX_DYNAMIC_LORAS)
     
     RETURN_NAMES = tuple(["prompt"] + [
@@ -39,36 +45,42 @@ class PromptTemplateManager:
     def VALIDATE_INPUTS(cls, **kwargs):
         return True
 
-    def process_template(self, load_template, prompt, **kwargs):
+    def process_template(self, load_template, prompt, lora_info="[]", **kwargs):
+        # 1. Start with the fixed prompt output
         results = [prompt]
 
-        # Find all LoRA indices from the keyword arguments (inputs)
-        indices = set()
-        for k in kwargs.keys():
-            if k.startswith("lora_") and "_name" in k:
-                try:
-                    parts = k.split("_")
-                    if len(parts) >= 3:
-                        indices.add(int(parts[1]))
-                except ValueError:
-                    pass
-        
-        sorted_indices = sorted(list(indices))
+        # ‼️ CHANGED: Instead of relying on **kwargs (which misses dynamic widgets),
+        # we parse the JSON blob sent by the JS frontend.
+        try:
+            lora_data = json.loads(lora_info)
+        except Exception as e:
+            print(f"PromptTemplateManager: Error parsing lora_info JSON: {e}")
+            lora_data = []
 
-        # Append Name and Strength for each LoRA
+        # lora_data structure expected: [{'index': 1, 'name': '...', 'strength': 1.0}, ...]
+        # We need to map this to our flat output list.
+        
+        # Create a dictionary for quick lookup by index
+        lora_map = {item['index']: item for item in lora_data}
+        
+        # Determine the highest index used to ensure we process them in order
+        max_index = 0
+        if lora_data:
+            max_index = max(item['index'] for item in lora_data)
+        
+        # 2. Iterate up to the highest index found (or just iterate sorted keys)
+        # We iterate specifically through the indices found in the JSON data.
+        sorted_indices = sorted(lora_map.keys())
+
         for i in sorted_indices:
-            name_key = f"lora_{i}_name"
-            strength_key = f"lora_{i}_strength"
-            
-            lora_name = kwargs.get(name_key, "None")
-            lora_strength = float(kwargs.get(strength_key, 1.0))
+            data = lora_map[i]
+            lora_name = data.get('name', "None")
+            lora_strength = float(data.get('strength', 1.0))
             
             results.append(lora_name)
             results.append(lora_strength)
 
-        # ‼️ CHANGED: Pad the results with None to match RETURN_TYPES length.
-        # This ensures that even if you only use 2 LoRAs, the backend returns a tuple 
-        # long enough to satisfy the 64-LoRA definition, preventing "index out of range".
+        # 3. Pad the results with None to match RETURN_TYPES length.
         expected_len = len(self.RETURN_TYPES)
         if len(results) < expected_len:
             results.extend([None] * (expected_len - len(results)))

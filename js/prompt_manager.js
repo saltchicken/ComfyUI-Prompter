@@ -32,10 +32,7 @@ app.registerExtension({
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 
-                // ‼️ CRITICAL FIX: The Python backend defines ~129 outputs to ensure validation passes.
-                // However, we don't want to see them all in the UI. 
-                // We truncate the output list to just the first one (Prompt) on creation.
-                // The dynamic add functions will push new outputs as needed, which aligns with Python's expected order.
+                // Truncate outputs in UI to avoid clutter
                 if (this.outputs && this.outputs.length > 1) {
                     this.outputs.length = 1;
                 }
@@ -46,6 +43,41 @@ app.registerExtension({
 
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
+                // ‼️ ADDED: Find and hide the lora_info widget (created by Python INPUT_TYPES)
+                const loraInfoWidget = this.widgets.find((w) => w.name === "lora_info");
+                if (loraInfoWidget) {
+                    loraInfoWidget.type = "hidden";
+                    loraInfoWidget.computeSize = () => [0, -4]; // Shrink it visually
+                }
+
+                // ‼️ ADDED: Helper to sync dynamic widgets to the hidden JSON widget
+                this.updateLoraInfo = () => {
+                    if (!loraInfoWidget) return;
+                    
+                    const loraData = [];
+                    // We scan properties.loraCount, or just scan all widgets
+                    // Scanning widgets is safer to ensure we get actual values
+                    for (const w of this.widgets) {
+                        if (w.name.startsWith("lora_") && w.name.endsWith("_name")) {
+                            const parts = w.name.split("_"); // lora_1_name
+                            if (parts.length >= 3) {
+                                const id = parts[1];
+                                const strengthName = `lora_${id}_strength`;
+                                const strengthWidget = this.widgets.find(sw => sw.name === strengthName);
+                                
+                                loraData.push({
+                                    index: parseInt(id),
+                                    name: w.value,
+                                    strength: strengthWidget ? strengthWidget.value : 1.0
+                                });
+                            }
+                        }
+                    }
+                    // Sort by index
+                    loraData.sort((a, b) => a.index - b.index);
+                    loraInfoWidget.value = JSON.stringify(loraData);
+                };
+
                 this.moveButtonsToBottom = () => {
                     if(!this.widgets) return;
                     const buttons = [];
@@ -71,19 +103,24 @@ app.registerExtension({
                     const id = this.properties.loraCount;
                     const loraList = getLoraList();
 
-                    const wName = this.addWidget("combo", `lora_${id}_name`, "None", () => {}, { 
-                        values: loraList 
-                    });
+                    // ‼️ CHANGED: Attached callback to update JSON when value changes
+                    const wName = this.addWidget("combo", `lora_${id}_name`, "None", (v) => {
+                        this.updateLoraInfo();
+                    }, { values: loraList });
                     if (nameValue) wName.value = nameValue;
 
-                    const wStrength = this.addWidget("number", `lora_${id}_strength`, strengthValue, () => {}, {
-                        min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2
-                    });
+                    // ‼️ CHANGED: Attached callback to update JSON when value changes
+                    const wStrength = this.addWidget("number", `lora_${id}_strength`, strengthValue, (v) => {
+                        this.updateLoraInfo();
+                    }, { min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2 });
 
                     this.addOutput(`lora_${id}_name`, "STRING");
                     this.addOutput(`lora_${id}_strength`, "FLOAT");
                     
                     this.moveButtonsToBottom();
+                    
+                    // Update immediately after adding
+                    this.updateLoraInfo();
                 };
 
                 this.addWidget("button", "Add LoRA", null, () => {
@@ -137,6 +174,8 @@ app.registerExtension({
                                 w.value = template[key];
                             }
                         }
+                        // ‼️ ADDED: Update the hidden JSON after loading a template
+                        this.updateLoraInfo();
                     }
                 };
 
@@ -222,7 +261,8 @@ app.registerExtension({
                         }
 
                         const newTemplate = {};
-                        const exclude = ["load_template", "Add LoRA", "Save Template", "Delete Template"];
+                        // Exclude buttons, load widget, and our hidden info widget
+                        const exclude = ["load_template", "Add LoRA", "Save Template", "Delete Template", "lora_info"];
                         
                         this.widgets.forEach(w => {
                             if (w.type !== "button" && !exclude.includes(w.name)) {
@@ -272,6 +312,11 @@ app.registerExtension({
 
                 if (this.updateTemplateDropdown) {
                     this.updateTemplateDropdown();
+                }
+                
+                // ‼️ ADDED: Sync JSON after loading from workflow
+                if (this.updateLoraInfo) {
+                    this.updateLoraInfo();
                 }
                 
                 if (this.moveButtonsToBottom) {
