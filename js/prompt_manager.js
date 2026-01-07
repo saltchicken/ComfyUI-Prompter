@@ -51,24 +51,18 @@ app.registerExtension({
                 }
 
 
-                // LiteGraph's default behavior shallow-copies default_properties. 
-                // Since 'templates' is an object, all nodes would share the SAME object reference by default.
-                // We must break this reference to ensure each node has its own isolated templates.
-                if (!this.properties) {
+                // Previously, we tried to break the 'templates' ref, but if 'this.properties' itself
+                // was a reference to the prototype's default object, any assignment to it would
+                // pollute all other nodes. We must reassign 'this.properties' to a fresh object.
+                if (this.properties) {
+                    this.properties = JSON.parse(JSON.stringify(this.properties));
+                } else {
                     this.properties = {};
                 }
 
-                if (!this.properties.templates) {
-                    this.properties.templates = {};
-                } else {
 
-                    this.properties.templates = { ...this.properties.templates };
-                }
-
-                // Ensure loraCount is initialized (primitives are copy-by-value so they are safe from reference sharing)
-                if (this.properties.loraCount === undefined) {
-                    this.properties.loraCount = 0;
-                }
+                if (!this.properties.templates) this.properties.templates = {};
+                if (this.properties.loraCount === undefined) this.properties.loraCount = 0;
 
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
