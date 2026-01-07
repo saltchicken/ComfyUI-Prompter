@@ -24,12 +24,12 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "PromptTemplateManager") {
             
-            // ‼️ Helper function is now crucial for the widget config
+
             const getLoraList = () => {
                 return cachedLoraList;
             };
 
-            // ‼️ FIX: Explicitly define default properties. 
+
             // This ensures that when a node is reloaded or deserialized, LiteGraph knows 
             // these fields are essential and shouldn't be discarded as temporary junk.
             nodeType.prototype.default_properties = {
@@ -41,7 +41,7 @@ app.registerExtension({
             nodeType.prototype.onNodeCreated = function () {
                 const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 
-                // ‼️ Safety check: Only truncate outputs if we are in a fresh/clean state 
+
                 // to avoid breaking existing connections on reload.
                 if (this.outputs && this.outputs.length > 1) {
                     // Check if we have connections; if so, this might be a reload on an active node.
@@ -50,7 +50,7 @@ app.registerExtension({
                     this.outputs.length = 1;
                 }
 
-                // ‼️ FIX: Ensure properties are instance-specific and NOT shared references.
+
                 // LiteGraph's default behavior shallow-copies default_properties. 
                 // Since 'templates' is an object, all nodes would share the SAME object reference by default.
                 // We must break this reference to ensure each node has its own isolated templates.
@@ -61,7 +61,7 @@ app.registerExtension({
                 if (!this.properties.templates) {
                     this.properties.templates = {};
                 } else {
-                    // ‼️ CRITICAL FIX: Break reference to prototype's shared object
+
                     this.properties.templates = { ...this.properties.templates };
                 }
 
@@ -136,7 +136,7 @@ app.registerExtension({
                         this.updateLoraInfo();
                     }, { min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2 });
 
-                    // ‼️ FIX: Changed output type from "STRING" to "COMBO" to match LoraLoader requirements
+
                     this.addOutput(`lora_${id}_name`, "COMBO");
                     this.addOutput(`lora_${id}_strength`, "FLOAT");
                     
@@ -182,7 +182,7 @@ app.registerExtension({
 
                         let changed = false;
 
-                        // ‼️ FIX: Remove excess LoRAs if the new template has fewer than current
+
                         // This ensures the node state matches the template exactly (shrinking if needed)
                         while (this.properties.loraCount > maxLoraId) {
                             const id = this.properties.loraCount;
@@ -307,7 +307,7 @@ app.registerExtension({
                         }
 
                         const newTemplate = {};
-                        // ‼️ FIX: Added new buttons to exclude list just in case, though logic excludes buttons automatically
+
                         const exclude = ["load_template", "Add LoRA", "Save Template", "Delete Template", "Export Templates", "Import Templates", "lora_info"];
                         
                         this.widgets.forEach(w => {
@@ -345,19 +345,19 @@ app.registerExtension({
                     }
                 });
 
-                // ‼️ NEW: Export Templates Button
+
                 this.addWidget("button", "Export Templates", null, () => {
                     if (!this.properties.templates || Object.keys(this.properties.templates).length === 0) {
                         alert("No templates to export.");
                         return;
                     }
 
-                    // ‼️ FIX: Ask user for filename to allow custom naming
+
                     let filename = prompt("Enter filename for export:", "comfy_prompt_templates");
                     if (filename === null) return; // User cancelled
                     if (!filename) filename = "comfy_prompt_templates"; // Default if empty
                     
-                    // ‼️ FIX: Ensure extension is correct
+
                     if (!filename.toLowerCase().endsWith(".json")) filename += ".json";
 
                     const jsonStr = JSON.stringify(this.properties.templates, null, 2);
@@ -366,7 +366,7 @@ app.registerExtension({
                     
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = filename; // ‼️ Use dynamic filename
+                    a.download = filename;
                     document.body.appendChild(a);
                     a.click();
                     setTimeout(() => {
@@ -375,7 +375,7 @@ app.registerExtension({
                     }, 0);
                 });
 
-                // ‼️ NEW: Import Templates Button
+
                 this.addWidget("button", "Import Templates", null, () => {
                     const input = document.createElement("input");
                     input.type = "file";
@@ -462,7 +462,7 @@ app.registerExtension({
                     document.body.removeChild(input);
                 });
                 
-                // ‼️ FIX: Trigger smart resize on creation to ensure node fits content
+
                 this.smartResize();
 
                 return r;
@@ -472,7 +472,7 @@ app.registerExtension({
             nodeType.prototype.onConfigure = function () {
                 if (onConfigure) onConfigure.apply(this, arguments);
                 
-                // ‼️ FIX: Better property checking during configure
+
                 if (this.properties && typeof this.properties.loraCount !== 'undefined') {
                     const count = this.properties.loraCount;
                     this.properties.loraCount = 0; 
