@@ -82,7 +82,8 @@ app.registerExtension({
                     if (nameValue) wName.value = nameValue;
 
                     // 2. Add LoRA Strength Widget
-                    const wStrength = this.addWidget("float", `lora_${id}_strength`, strengthValue, () => {}, {
+                    // ‼️ CHANGED: Use "number" instead of "float". LiteGraph uses "number" for float inputs.
+                    const wStrength = this.addWidget("number", `lora_${id}_strength`, strengthValue, () => {}, {
                         min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2
                     });
 
