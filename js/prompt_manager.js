@@ -122,7 +122,8 @@ app.registerExtension({
                         this.updateLoraInfo();
                     }, { min: -10.0, max: 10.0, step: 0.01, default: 1.0, precision: 2 });
 
-                    this.addOutput(`lora_${id}_name`, "STRING");
+                    // ‼️ FIX: Changed output type from "STRING" to "COMBO" to match LoraLoader requirements
+                    this.addOutput(`lora_${id}_name`, "COMBO");
                     this.addOutput(`lora_${id}_strength`, "FLOAT");
                     
                     this.moveButtonsToBottom();

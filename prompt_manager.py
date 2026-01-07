@@ -31,7 +31,8 @@ class PromptTemplateManager:
 
 
     # If we don't, downstream nodes like "ShowText" will crash when validating connections to dynamic ports.
-    RETURN_TYPES = tuple(["STRING"] + ["STRING", "FLOAT"] * MAX_DYNAMIC_LORAS)
+    # ‼️ FIX: Changed "STRING" to "COMBO" to match LoraLoader input requirements
+    RETURN_TYPES = tuple(["STRING"] + ["COMBO", "FLOAT"] * MAX_DYNAMIC_LORAS)
     
     RETURN_NAMES = tuple(["prompt"] + [
         val for i in range(1, MAX_DYNAMIC_LORAS + 1) 
