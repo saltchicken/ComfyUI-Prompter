@@ -337,13 +337,22 @@ app.registerExtension({
                         alert("No templates to export.");
                         return;
                     }
+
+                    // ‼️ FIX: Ask user for filename to allow custom naming
+                    let filename = prompt("Enter filename for export:", "comfy_prompt_templates");
+                    if (filename === null) return; // User cancelled
+                    if (!filename) filename = "comfy_prompt_templates"; // Default if empty
+                    
+                    // ‼️ FIX: Ensure extension is correct
+                    if (!filename.toLowerCase().endsWith(".json")) filename += ".json";
+
                     const jsonStr = JSON.stringify(this.properties.templates, null, 2);
                     const blob = new Blob([jsonStr], {type: "application/json"});
                     const url = URL.createObjectURL(blob);
                     
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = "comfy_prompt_templates.json";
+                    a.download = filename; // ‼️ Use dynamic filename
                     document.body.appendChild(a);
                     a.click();
                     setTimeout(() => {
