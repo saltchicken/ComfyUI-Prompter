@@ -1,9 +1,5 @@
 import folder_paths
 
-
-# ComfyUI requires RETURN_TYPES to be defined at class load time, so we must pre-allocate them.
-MAX_DYNAMIC_LORAS = 64
-
 class PromptTemplateManager:
     """
     A ComfyUI node that stores templates strictly within the workflow metadata (node properties).
@@ -24,18 +20,13 @@ class PromptTemplateManager:
             },
         }
 
-
-
-    # We allocate slots for the prompt + (MAX_DYNAMIC_LORAS * 2) for Name/Strength pairs.
-    RETURN_TYPES = tuple(["STRING"] + ["STRING", "FLOAT"] * MAX_DYNAMIC_LORAS)
+    # ‼️ REVERTED: We keep the static definition simple to avoid cluttering the UI.
+    # The JS side will add the extra outputs dynamically.
+    # ComfyUI's backend is flexible enough to handle more returns than declared here
+    # as long as we return a tuple of the correct length.
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("prompt",)
     
-
-    # Format: prompt, lora_1_name, lora_1_strength, lora_2_name, lora_2_strength...
-    RETURN_NAMES = tuple(["prompt"] + [
-        val for i in range(1, MAX_DYNAMIC_LORAS + 1) 
-        for val in (f"lora_{i}_name", f"lora_{i}_strength")
-    ])
-
     FUNCTION = "process_template"
     CATEGORY = "Custom/Prompting"
 
@@ -64,23 +55,24 @@ class PromptTemplateManager:
         sorted_indices = sorted(list(indices))
 
         # 4. Append Name and Strength for each LoRA
+        # Note: If inputs are missing from kwargs (e.g. not connected), this loop might be skipped.
         for i in sorted_indices:
             name_key = f"lora_{i}_name"
             strength_key = f"lora_{i}_strength"
             
             lora_name = kwargs.get(name_key, "None")
-
             lora_strength = float(kwargs.get(strength_key, 1.0))
             
             results.append(lora_name)
             results.append(lora_strength)
 
-
-        # If we return fewer items than declared in RETURN_TYPES, ComfyUI might throw errors
-        # or misalign connections.
-        expected_len = len(self.RETURN_TYPES)
-        if len(results) < expected_len:
-            results.extend([None] * (expected_len - len(results)))
+        # ‼️ ADDED: Pad the results with None to a safe maximum (e.g., 64 LoRAs = 129 outputs).
+        # This prevents "index out of range" errors in the backend if the UI has 
+        # ports connected (e.g., Output 1 & 2) but kwargs didn't populate them yet.
+        # ComfyUI will simply pass 'None' to the downstream node (Show Any), which is safe.
+        MAX_OUTPUTS = 1 + (64 * 2) # 1 prompt + 64 pairs
+        if len(results) < MAX_OUTPUTS:
+            results.extend([None] * (MAX_OUTPUTS - len(results)))
 
         # This matches the dynamic outputs created in JS.
         return tuple(results)
