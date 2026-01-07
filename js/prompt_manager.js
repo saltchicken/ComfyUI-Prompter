@@ -50,11 +50,25 @@ app.registerExtension({
                     this.outputs.length = 1;
                 }
 
-                // ‼️ Ensure properties object exists and has defaults (defensive coding)
-                if (!this.properties) this.properties = {};
-                // We use 'Object.assign' to merge defaults if they are missing, preventing overwrite of existing data
-                if (!this.properties.templates) this.properties.templates = {};
-                if (this.properties.loraCount === undefined) this.properties.loraCount = 0;
+                // ‼️ FIX: Ensure properties are instance-specific and NOT shared references.
+                // LiteGraph's default behavior shallow-copies default_properties. 
+                // Since 'templates' is an object, all nodes would share the SAME object reference by default.
+                // We must break this reference to ensure each node has its own isolated templates.
+                if (!this.properties) {
+                    this.properties = {};
+                }
+
+                if (!this.properties.templates) {
+                    this.properties.templates = {};
+                } else {
+                    // ‼️ CRITICAL FIX: Break reference to prototype's shared object
+                    this.properties.templates = { ...this.properties.templates };
+                }
+
+                // Ensure loraCount is initialized (primitives are copy-by-value so they are safe from reference sharing)
+                if (this.properties.loraCount === undefined) {
+                    this.properties.loraCount = 0;
+                }
 
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
