@@ -293,7 +293,8 @@ app.registerExtension({
                         }
 
                         const newTemplate = {};
-                        const exclude = ["load_template", "Add LoRA", "Save Template", "Delete Template", "lora_info"];
+                        // ‼️ FIX: Added new buttons to exclude list just in case, though logic excludes buttons automatically
+                        const exclude = ["load_template", "Add LoRA", "Save Template", "Delete Template", "Export Templates", "Import Templates", "lora_info"];
                         
                         this.widgets.forEach(w => {
                             if (w.type !== "button" && !exclude.includes(w.name)) {
@@ -328,6 +329,114 @@ app.registerExtension({
                             loadWidget.value = "None";
                         }
                     }
+                });
+
+                // ‼️ NEW: Export Templates Button
+                this.addWidget("button", "Export Templates", null, () => {
+                    if (!this.properties.templates || Object.keys(this.properties.templates).length === 0) {
+                        alert("No templates to export.");
+                        return;
+                    }
+                    const jsonStr = JSON.stringify(this.properties.templates, null, 2);
+                    const blob = new Blob([jsonStr], {type: "application/json"});
+                    const url = URL.createObjectURL(blob);
+                    
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = "comfy_prompt_templates.json";
+                    document.body.appendChild(a);
+                    a.click();
+                    setTimeout(() => {
+                        document.body.removeChild(a);
+                        window.URL.revokeObjectURL(url);
+                    }, 0);
+                });
+
+                // ‼️ NEW: Import Templates Button
+                this.addWidget("button", "Import Templates", null, () => {
+                    const input = document.createElement("input");
+                    input.type = "file";
+                    input.accept = "application/json";
+                    input.style.display = "none";
+                    
+                    input.onchange = (e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+                        
+                        const reader = new FileReader();
+                        reader.onload = (event) => {
+                            try {
+                                const importedData = JSON.parse(event.target.result);
+                                if (!importedData || typeof importedData !== 'object') {
+                                    alert("Invalid JSON file.");
+                                    return;
+                                }
+
+                                // Create Dialog for Merge/Replace choice
+                                const dialog = document.createElement("div");
+                                Object.assign(dialog.style, {
+                                    position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
+                                    backgroundColor: "#222", padding: "20px", borderRadius: "8px", 
+                                    border: "1px solid #444", zIndex: 10000, color: "white", 
+                                    fontFamily: "sans-serif", display: "flex", flexDirection: "column", gap: "10px",
+                                    minWidth: "300px", boxShadow: "0 4px 6px rgba(0,0,0,0.5)"
+                                });
+
+                                const title = document.createElement("h3");
+                                title.textContent = "Import Strategy";
+                                title.style.margin = "0 0 10px 0";
+                                dialog.appendChild(title);
+
+                                const info = document.createElement("p");
+                                info.textContent = `Found ${Object.keys(importedData).length} templates in file.`;
+                                dialog.appendChild(info);
+
+                                const btnContainer = document.createElement("div");
+                                Object.assign(btnContainer.style, { display: "flex", justifyContent: "flex-end", gap: "10px", marginTop: "10px" });
+
+                                const mergeBtn = document.createElement("button");
+                                mergeBtn.textContent = "Merge";
+                                mergeBtn.title = "Add imported templates to current list (overwrites duplicates)";
+                                mergeBtn.onclick = () => {
+                                    if (!this.properties.templates) this.properties.templates = {};
+                                    Object.assign(this.properties.templates, importedData);
+                                    updateDropdown();
+                                    document.body.removeChild(dialog);
+                                };
+
+                                const replaceBtn = document.createElement("button");
+                                replaceBtn.textContent = "Replace All";
+                                replaceBtn.title = "Delete all current templates and replace with imported ones";
+                                replaceBtn.onclick = () => {
+                                    if (confirm("This will delete all current templates and replace them with the imported file. Are you sure?")) {
+                                        this.properties.templates = importedData;
+                                        updateDropdown();
+                                        loadWidget.value = "None"; // Reset selection to be safe
+                                        document.body.removeChild(dialog);
+                                    }
+                                };
+                                
+                                const cancelBtn = document.createElement("button");
+                                cancelBtn.textContent = "Cancel";
+                                cancelBtn.onclick = () => document.body.removeChild(dialog);
+
+                                btnContainer.appendChild(mergeBtn);
+                                btnContainer.appendChild(replaceBtn);
+                                btnContainer.appendChild(cancelBtn);
+                                dialog.appendChild(btnContainer);
+                                document.body.appendChild(dialog);
+
+                            } catch (error) {
+                                console.error(error);
+                                alert("Failed to parse JSON.");
+                            }
+                        };
+                        reader.readAsText(file);
+                    };
+                    
+                    document.body.appendChild(input);
+                    input.click();
+                    document.body.removeChild(input);
                 });
                 
                 // ‼️ FIX: Trigger smart resize on creation to ensure node fits content
