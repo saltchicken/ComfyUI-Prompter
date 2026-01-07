@@ -329,6 +329,9 @@ app.registerExtension({
                     }
                 });
                 
+                // ‼️ FIX: Trigger smart resize on creation to ensure node fits content
+                this.smartResize();
+
                 return r;
             };
 
@@ -361,7 +364,7 @@ app.registerExtension({
                 if(this.smartResize) {
                     this.smartResize();
                 } else {
-                     this.setSize(this.computeSize());
+                      this.setSize(this.computeSize());
                 }
             };
         }
