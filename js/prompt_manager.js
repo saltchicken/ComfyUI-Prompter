@@ -18,14 +18,23 @@ app.registerExtension({
                 const loadWidget = this.widgets.find((w) => w.name === "load_template");
                 
                 // Helper to update dropdown options based on stored templates
+                // ‼️ Defined as a const for local use, but also attached to 'this' 
+                // so it can be called by onConfigure later
                 const updateDropdown = () => {
+                    // ‼️ Safety check
+                    if (!this.properties || !this.properties.templates) return;
+
                     const templates = Object.keys(this.properties.templates);
                     loadWidget.options.values = ["None", ...templates];
+                    
                     // If current value is invalid, reset to None
                     if (!loadWidget.options.values.includes(loadWidget.value)) {
                         loadWidget.value = "None";
                     }
                 };
+                
+                // ‼️ Expose the updater to the instance
+                this.updateTemplateDropdown = updateDropdown;
 
                 // Initial dropdown update
                 updateDropdown();
@@ -105,9 +114,7 @@ app.registerExtension({
                         overwriteCheckbox.disabled = true;
                         overwriteLabel.style.color = "#777";
                     } else {
-                        // Default to unchecked or checked based on preference? 
-                        // Let's default unchecked to prevent accidents, or checked for convenience. 
-                        // Prompt asked for "option to overwrite", usually implies unchecked by default.
+                        // Default to unchecked to prevent accidents
                         overwriteCheckbox.checked = false;
                     }
 
@@ -192,6 +199,18 @@ app.registerExtension({
                 });
                 
                 return r;
+            };
+
+            // ‼️ Hook into onConfigure to refresh widgets when workflow is loaded/refreshed
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function () {
+                if (onConfigure) onConfigure.apply(this, arguments);
+                
+                // When the graph is reloaded, properties are restored from the save file.
+                // We need to trigger the dropdown update to show the restored templates.
+                if (this.updateTemplateDropdown) {
+                    this.updateTemplateDropdown();
+                }
             };
         }
     }
