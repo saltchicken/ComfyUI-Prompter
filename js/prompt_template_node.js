@@ -5,110 +5,193 @@ app.registerExtension({
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "PromptTemplateManager") {
             
+            // ‼️ Hook into node creation to setup properties and widgets
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
-                if (onNodeCreated) onNodeCreated.apply(this, arguments);
+                const r = onNodeCreated ? onNodeCreated.apply(this, arguments) : undefined;
 
-                const node = this;
+                // Ensure properties exist to store templates
+                if (!this.properties) this.properties = {};
+                if (!this.properties.templates) this.properties.templates = {};
 
-                if (!node.properties) node.properties = {};
-                // 'saved_templates' will hold our library of templates
-                if (!node.properties.saved_templates) node.properties.saved_templates = {};
+                // Find the load_template widget
+                const loadWidget = this.widgets.find((w) => w.name === "load_template");
+                
+                // Helper to update dropdown options based on stored templates
+                const updateDropdown = () => {
+                    const templates = Object.keys(this.properties.templates);
+                    loadWidget.options.values = ["None", ...templates];
+                    // If current value is invalid, reset to None
+                    if (!loadWidget.options.values.includes(loadWidget.value)) {
+                        loadWidget.value = "None";
+                    }
+                };
 
-                const getWidget = (name) => node.widgets.find((w) => w.name === name);
+                // Initial dropdown update
+                updateDropdown();
 
-                node.refreshTemplateDropdown = () => {
-                    const templates = node.properties.saved_templates;
-                    const templateWidget = getWidget("load_template");
+                // ‼️ Listener for when a template is selected from the dropdown
+                const originalCallback = loadWidget.callback;
+                loadWidget.callback = (value) => {
+                    if (originalCallback) originalCallback(value);
                     
-                    if (templateWidget) {
-                        const current = templateWidget.value;
-                        // Sort keys alphabetically
-                        const options = ["None", ...Object.keys(templates).sort()];
-                        templateWidget.options.values = options;
-                        
-                        // If current selection is no longer valid, reset to None
-                        if (!options.includes(current)) {
-                            templateWidget.value = "None";
+                    if (value === "None") return;
+
+                    const template = this.properties.templates[value];
+                    if (template) {
+                        // Apply template values to other widgets
+                        for (const key in template) {
+                            const w = this.widgets.find((w) => w.name === key);
+                            if (w) {
+                                w.value = template[key];
+                            }
                         }
                     }
                 };
 
-                this.addWidget("button", "Save Template (to Node)", null, () => {
-                    const nameWidget = getWidget("new_template_name");
-                    const templateName = nameWidget ? nameWidget.value : "";
+                // ‼️ "Save Template" Button
+                this.addWidget("button", "Save Template", null, () => {
+                    const currentSelection = loadWidget.value;
+                    const isExistingLoaded = currentSelection !== "None";
 
-                    if (!templateName || templateName.trim() === "") {
-                        alert("Please enter a template name.");
-                        return;
+                    // Show custom Dialog
+                    const dialog = document.createElement("div");
+                    Object.assign(dialog.style, {
+                        position: "fixed", left: "50%", top: "50%", transform: "translate(-50%, -50%)",
+                        backgroundColor: "#222", padding: "20px", borderRadius: "8px", 
+                        border: "1px solid #444", zIndex: 10000, color: "white", 
+                        fontFamily: "sans-serif", display: "flex", flexDirection: "column", gap: "10px",
+                        minWidth: "300px", boxShadow: "0 4px 6px rgba(0,0,0,0.5)"
+                    });
+
+                    const title = document.createElement("h3");
+                    title.textContent = "Save Template";
+                    title.style.margin = "0 0 10px 0";
+                    dialog.appendChild(title);
+
+                    // Name Input
+                    const nameInput = document.createElement("input");
+                    nameInput.type = "text";
+                    nameInput.placeholder = "Template Name";
+                    nameInput.style.padding = "5px";
+                    nameInput.style.backgroundColor = "#333";
+                    nameInput.style.color = "white";
+                    nameInput.style.border = "1px solid #555";
+                    
+                    // If overwrite isn't possible, we can pre-fill with a generic name or empty
+                    if (isExistingLoaded) {
+                        nameInput.value = currentSelection; 
+                    }
+                    dialog.appendChild(nameInput);
+
+                    // Overwrite Checkbox Container
+                    const overwriteContainer = document.createElement("div");
+                    overwriteContainer.style.display = "flex";
+                    overwriteContainer.style.alignItems = "center";
+                    overwriteContainer.style.gap = "8px";
+
+                    const overwriteCheckbox = document.createElement("input");
+                    overwriteCheckbox.type = "checkbox";
+                    overwriteCheckbox.id = "overwrite-cb";
+                    
+                    const overwriteLabel = document.createElement("label");
+                    overwriteLabel.htmlFor = "overwrite-cb";
+                    overwriteLabel.textContent = isExistingLoaded 
+                        ? `Overwrite current ("${currentSelection}")` 
+                        : "Overwrite current (No template loaded)";
+                    
+                    // Logic to disable/enable overwrite option
+                    if (!isExistingLoaded) {
+                        overwriteCheckbox.disabled = true;
+                        overwriteLabel.style.color = "#777";
+                    } else {
+                        // Default to unchecked or checked based on preference? 
+                        // Let's default unchecked to prevent accidents, or checked for convenience. 
+                        // Prompt asked for "option to overwrite", usually implies unchecked by default.
+                        overwriteCheckbox.checked = false;
                     }
 
-                    // Gather values
-                    const prompt = getWidget("prompt").value;
-                    const loraData = [];
-                    for (let i = 1; i <= 4; i++) {
-                        loraData.push({
-                            name: getWidget(`lora_${i}_name`).value,
-                            strength: getWidget(`lora_${i}_strength`).value
+                    overwriteContainer.appendChild(overwriteCheckbox);
+                    overwriteContainer.appendChild(overwriteLabel);
+                    dialog.appendChild(overwriteContainer);
+
+                    // Name input disable logic
+                    overwriteCheckbox.addEventListener("change", (e) => {
+                        if (e.target.checked) {
+                            nameInput.disabled = true;
+                            nameInput.style.opacity = "0.5";
+                            nameInput.value = currentSelection;
+                        } else {
+                            nameInput.disabled = false;
+                            nameInput.style.opacity = "1";
+                        }
+                    });
+
+                    // Buttons
+                    const btnContainer = document.createElement("div");
+                    btnContainer.style.display = "flex";
+                    btnContainer.style.justifyContent = "flex-end";
+                    btnContainer.style.gap = "10px";
+                    btnContainer.style.marginTop = "10px";
+
+                    const cancelBtn = document.createElement("button");
+                    cancelBtn.textContent = "Cancel";
+                    cancelBtn.onclick = () => document.body.removeChild(dialog);
+
+                    const saveBtn = document.createElement("button");
+                    saveBtn.textContent = "Save";
+                    saveBtn.onclick = () => {
+                        let finalName = "";
+                        if (overwriteCheckbox.checked && isExistingLoaded) {
+                            finalName = currentSelection;
+                        } else {
+                            finalName = nameInput.value.trim();
+                        }
+
+                        if (!finalName) {
+                            alert("Please enter a template name.");
+                            return;
+                        }
+
+                        // Collect values
+                        const newTemplate = {};
+                        const exclude = ["load_template"]; // Don't save the loader itself
+                        
+                        this.widgets.forEach(w => {
+                            if (w.type !== "button" && !exclude.includes(w.name)) {
+                                newTemplate[w.name] = w.value;
+                            }
                         });
-                    }
 
-                    node.properties.saved_templates[templateName] = {
-                        prompt: prompt,
-                        lora_data: loraData
+                        // Save
+                        this.properties.templates[finalName] = newTemplate;
+                        updateDropdown();
+                        loadWidget.value = finalName; // Select the new template
+                        
+                        document.body.removeChild(dialog);
+                        app.graph.setDirtyCanvas(true, true); // Refresh
                     };
 
-                    node.refreshTemplateDropdown();
-                    alert(`Template '${templateName}' saved to this node! It will persist with the workflow.`);
+                    btnContainer.appendChild(cancelBtn);
+                    btnContainer.appendChild(saveBtn);
+                    dialog.appendChild(btnContainer);
+
+                    document.body.appendChild(dialog);
                 });
 
-                const templateWidget = getWidget("load_template");
-                if (templateWidget) {
-                    const originalCallback = templateWidget.callback;
-                    templateWidget.callback = (value) => {
-                        if (originalCallback) originalCallback(value);
-                        
-                        if (value && value !== "None") {
-                            // Load from properties
-                            const data = node.properties.saved_templates[value];
+                // ‼️ "Delete Template" Button
+                this.addWidget("button", "Delete Template", null, () => {
+                    const current = loadWidget.value;
+                    if (current === "None") return;
 
-                            if (data) {
-                                // Update Prompt
-                                const promptWidget = getWidget("prompt");
-                                if (promptWidget && data.prompt) {
-                                    promptWidget.value = data.prompt;
-                                }
-
-                                // Update LoRAs
-                                const loras = data.lora_data || [];
-                                for (let i = 0; i < 4; i++) {
-                                    const lName = getWidget(`lora_${i+1}_name`);
-                                    const lStr = getWidget(`lora_${i+1}_strength`);
-                                    
-                                    if (i < loras.length) {
-                                        if (lName) lName.value = loras[i].name || "None";
-                                        if (lStr) lStr.value = loras[i].strength || 1.0;
-                                    } else {
-                                        if (lName) lName.value = "None";
-                                        if (lStr) lStr.value = 1.0;
-                                    }
-                                }
-                                app.graph.setDirtyCanvas(true, true);
-                            }
-                        }
-                    };
-                }
-            };
-
-            // Handle Workflow Loading
-            // This ensures that when you open a saved workflow, the dropdown is repopulated
-            // from the loaded properties.
-            const onConfigure = nodeType.prototype.onConfigure;
-            nodeType.prototype.onConfigure = function() {
-                if (onConfigure) onConfigure.apply(this, arguments);
-                if (this.refreshTemplateDropdown) {
-                    this.refreshTemplateDropdown();
-                }
+                    if (confirm(`Are you sure you want to delete template "${current}"?`)) {
+                        delete this.properties.templates[current];
+                        updateDropdown();
+                        loadWidget.value = "None"; // Reset selection
+                    }
+                });
+                
+                return r;
             };
         }
     }

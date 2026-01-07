@@ -31,8 +31,8 @@ class PromptTemplateManager:
 
                 "lora_4_name": (lora_list, ),
                 "lora_4_strength": ("FLOAT", {"default": 1.0, "min": -10.0, "max": 10.0, "step": 0.01}),
+                
 
-                "new_template_name": ("STRING", {"default": "MyNewTemplate"}),
             },
         }
 
@@ -52,8 +52,8 @@ class PromptTemplateManager:
                          lora_1_name, lora_1_strength,
                          lora_2_name, lora_2_strength,
                          lora_3_name, lora_3_strength,
-                         lora_4_name, lora_4_strength,
-                         new_template_name):
+                         lora_4_name, lora_4_strength):
+
         
         # Pass-through logic. 
         # JS handles the "loading" (widget updating) before we get here.
