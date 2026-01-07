@@ -20,6 +20,7 @@ class PromptTemplateManager:
             "required": {
                 "load_template": (["None"], ),
                 "prompt": ("STRING", {"multiline": True, "default": "insert prompt here"}),
+                "negative_prompt": ("STRING", {"multiline": True, "default": "insert negative prompt here"}),
             },
 
             # We use "optional" to ensure it doesn't block execution if something glitches,
@@ -32,9 +33,9 @@ class PromptTemplateManager:
 
     # If we don't, downstream nodes like "ShowText" will crash when validating connections to dynamic ports.
 
-    RETURN_TYPES = tuple(["STRING"] + [folder_paths.get_filename_list("loras"), "FLOAT"] * MAX_DYNAMIC_LORAS)
+    RETURN_TYPES = tuple(["STRING", "STRING"] + [folder_paths.get_filename_list("loras"), "FLOAT"] * MAX_DYNAMIC_LORAS)
     
-    RETURN_NAMES = tuple(["prompt"] + [
+    RETURN_NAMES = tuple(["prompt", "negative_prompt"] + [
         val for i in range(1, MAX_DYNAMIC_LORAS + 1) 
         for val in (f"lora_{i}_name", f"lora_{i}_strength")
     ])
@@ -46,9 +47,9 @@ class PromptTemplateManager:
     def VALIDATE_INPUTS(cls, **kwargs):
         return True
 
-    def process_template(self, load_template, prompt, lora_info="[]", **kwargs):
-        # 1. Start with the fixed prompt output
-        results = [prompt]
+    def process_template(self, load_template, prompt, negative_prompt, lora_info="[]", **kwargs):
+        # 1. Start with the fixed prompt outputs
+        results = [prompt, negative_prompt]
 
 
         # we parse the JSON blob sent by the JS frontend.

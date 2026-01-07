@@ -42,7 +42,8 @@ app.registerExtension({
                     // Check if we have connections; if so, this might be a reload on an active node.
                     // However, to enforce the "clean" look, we usually truncate. 
                     // We'll trust the configure step to restore outputs if needed.
-                    this.outputs.length = 1;
+
+                    this.outputs.length = 2;
                 }
 
 
@@ -131,12 +132,12 @@ app.registerExtension({
 
 
                     // This prevents the "keeps adding all outputs" bug when reloading workflows.
-                    // We expect outputs at index (id * 2) roughly (0 is prompt, 1 is Lora1_name, 2 is Lora1_str, etc)
-                    // The standard output count should be 1 + (id * 2)
+                    // We expect outputs at index: 0=Prompt, 1=Negative, 2=Lora1_name, 3=Lora1_str, etc.
+                    // The standard output count should be 2 + (id * 2)
                     
                     // Simple check: if current outputs length is less than what we need for this ID, add them.
-                    // (id * 2) gives the index of the strength output for this ID. If length is <= that, we are missing outputs.
-                    if (this.outputs.length <= (id * 2)) {
+                    // (id * 2) + 1 gives the index of the strength output for this ID. If length is <= that, we are missing outputs.
+                    if (this.outputs.length <= (id * 2) + 1) {
                         this.addOutput(`lora_${id}_name`, "COMBO");
                         this.addOutput(`lora_${id}_strength`, "FLOAT");
                     }
@@ -198,9 +199,9 @@ app.registerExtension({
 
                             // Remove Outputs (corresponding to this LoRA layer)
                             // We assume the last 2 outputs are the ones to go. 
-                            // Guard against removing the main Prompt output (index 0).
-                            if (this.outputs.length > 1) this.removeOutput(this.outputs.length - 1);
-                            if (this.outputs.length > 1) this.removeOutput(this.outputs.length - 1);
+                            // Guard against removing the main Prompt output (index 0) and Negative (index 1).
+                            if (this.outputs.length > 2) this.removeOutput(this.outputs.length - 1);
+                            if (this.outputs.length > 2) this.removeOutput(this.outputs.length - 1);
 
                             this.properties.loraCount--;
                             changed = true;
@@ -478,7 +479,7 @@ app.registerExtension({
                     const count = this.properties.loraCount;
                     
 
-                    // We need to skip the static widgets (Load, Prompt, Info) to find where our LoRAs start in the saved array.
+                    // We need to skip the static widgets (Load, Prompt, Negative, Info) to find where our LoRAs start in the saved array.
                     // Buttons are usually not saved in widgets_values, so we filter them out.
                     const nonButtonWidgets = this.widgets.filter(w => w.type !== "button");
                     const startOffset = nonButtonWidgets.length;
