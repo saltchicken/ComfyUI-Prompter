@@ -1,5 +1,9 @@
 import folder_paths
 
+
+# ComfyUI requires RETURN_TYPES to be defined at class load time, so we must pre-allocate them.
+MAX_DYNAMIC_LORAS = 64
+
 class PromptTemplateManager:
     """
     A ComfyUI node that stores templates strictly within the workflow metadata (node properties).
@@ -21,10 +25,17 @@ class PromptTemplateManager:
         }
 
 
-    # The dynamic LoRA outputs are added by the JS side, but the Python logic
-    # adapts to return the correct number of values based on what was passed in.
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("prompt",)
+
+    # We allocate slots for the prompt + (MAX_DYNAMIC_LORAS * 2) for Name/Strength pairs.
+    RETURN_TYPES = tuple(["STRING"] + ["STRING", "FLOAT"] * MAX_DYNAMIC_LORAS)
+    
+
+    # Format: prompt, lora_1_name, lora_1_strength, lora_2_name, lora_2_strength...
+    RETURN_NAMES = tuple(["prompt"] + [
+        val for i in range(1, MAX_DYNAMIC_LORAS + 1) 
+        for val in (f"lora_{i}_name", f"lora_{i}_strength")
+    ])
+
     FUNCTION = "process_template"
     CATEGORY = "Custom/Prompting"
 
@@ -64,6 +75,12 @@ class PromptTemplateManager:
             results.append(lora_name)
             results.append(lora_strength)
 
+
+        # If we return fewer items than declared in RETURN_TYPES, ComfyUI might throw errors
+        # or misalign connections.
+        expected_len = len(self.RETURN_TYPES)
+        if len(results) < expected_len:
+            results.extend([None] * (expected_len - len(results)))
 
         # This matches the dynamic outputs created in JS.
         return tuple(results)
