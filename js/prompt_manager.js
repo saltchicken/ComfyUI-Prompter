@@ -57,6 +57,17 @@ app.registerExtension({
                     this.widgets = [...others, ...buttons];
                 };
 
+                // ‼️ Smart resize helper to prevent snapping width
+                this.smartResize = () => {
+                    // computeSize calculates the minimum size required by the widgets
+                    const minSize = this.computeSize();
+                    const currentSize = this.size;
+                    
+                    // We keep the current width if it's larger than minimum (user resized it manually)
+                    // We take the minimum height calculated by computeSize to ensure widgets fit
+                    this.setSize([Math.max(currentSize[0], minSize[0]), minSize[1]]);
+                };
+
                 // Logic to add a new LoRA input/output pair
                 this.addLoraInputs = (nameValue = "None", strengthValue = 1.0) => {
                     this.properties.loraCount++;
@@ -86,8 +97,8 @@ app.registerExtension({
                 // "Add LoRA" Button
                 this.addWidget("button", "Add LoRA", null, () => {
                     this.addLoraInputs();
-                    // Resize node to fit new widgets, preventing weird jumps
-                    this.setSize(this.computeSize());
+                    // ‼️ Use smart resize instead of setSize(computeSize())
+                    this.smartResize();
                 });
 
                 // Update dropdown helper
@@ -122,13 +133,19 @@ app.registerExtension({
                             }
                         }
 
+                        // ‼️ Track if we actually added widgets
+                        let added = false;
                         // Expand node if needed
                         while (this.properties.loraCount < maxLoraId) {
                             this.addLoraInputs();
+                            added = true;
                         }
                         
-                        this.moveButtonsToBottom();
-                        this.setSize(this.computeSize());
+                        // ‼️ Only perform layout updates if we changed structure
+                        if (added) {
+                            this.moveButtonsToBottom();
+                            this.smartResize();
+                        }
 
                         // Apply values
                         for (const key in template) {
@@ -284,7 +301,12 @@ app.registerExtension({
                     this.moveButtonsToBottom();
                 }
 
-                this.setSize(this.computeSize());
+                // ‼️ Smart resize on load
+                if(this.smartResize) {
+                    this.smartResize();
+                } else {
+                     this.setSize(this.computeSize());
+                }
             };
         }
     }
