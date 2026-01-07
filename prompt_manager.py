@@ -58,7 +58,7 @@ class PromptTemplateManager:
             strength_key = f"lora_{i}_strength"
             
             lora_name = kwargs.get(name_key, "None")
-            # ‼️ Ensure strength is cast to float, defaulting to 1.0 if missing/invalid
+
             lora_strength = float(kwargs.get(strength_key, 1.0))
             
             results.append(lora_name)
