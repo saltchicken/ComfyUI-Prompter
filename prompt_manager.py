@@ -42,9 +42,10 @@ class PromptTemplateManager:
     CATEGORY = "Custom/Prompting"
 
 
-    # This enables JS to add custom templates to the list without backend errors.
+    # This allows validation to pass regardless of what inputs are sent (e.g. 'SamusAran'),
+    # bypassing the strict check against the static INPUT_TYPES list.
     @classmethod
-    def VALIDATE_INPUTS(cls, input_types):
+    def VALIDATE_INPUTS(cls, **kwargs):
         return True
 
     def process_template(self, load_template, prompt, 
