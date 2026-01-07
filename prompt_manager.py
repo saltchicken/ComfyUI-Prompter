@@ -1,7 +1,7 @@
 import folder_paths
 import json
 
-# ‼️ Defined a maximum limit for dynamic LoRA outputs. 
+
 # This must exist to satisfy ComfyUI's backend validation.
 MAX_DYNAMIC_LORAS = 64
 
@@ -21,7 +21,7 @@ class PromptTemplateManager:
                 "load_template": (["None"], ),
                 "prompt": ("STRING", {"multiline": True, "default": "insert prompt here"}),
             },
-            # ‼️ ADDED: A hidden input to receive the JSON blob of dynamic widgets from JS.
+
             # We use "optional" to ensure it doesn't block execution if something glitches,
             # though JS should always provide it.
             "optional": {
@@ -29,7 +29,7 @@ class PromptTemplateManager:
             }
         }
 
-    # ‼️ CHANGED: We MUST define the outputs here for validation to pass.
+
     # If we don't, downstream nodes like "ShowText" will crash when validating connections to dynamic ports.
     RETURN_TYPES = tuple(["STRING"] + ["STRING", "FLOAT"] * MAX_DYNAMIC_LORAS)
     
@@ -49,7 +49,7 @@ class PromptTemplateManager:
         # 1. Start with the fixed prompt output
         results = [prompt]
 
-        # ‼️ CHANGED: Instead of relying on **kwargs (which misses dynamic widgets),
+
         # we parse the JSON blob sent by the JS frontend.
         try:
             lora_data = json.loads(lora_info)

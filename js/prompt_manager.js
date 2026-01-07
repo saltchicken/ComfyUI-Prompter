@@ -165,13 +165,37 @@ app.registerExtension({
                             }
                         }
 
-                        let added = false;
+                        let changed = false;
+
+                        // ‼️ FIX: Remove excess LoRAs if the new template has fewer than current
+                        // This ensures the node state matches the template exactly (shrinking if needed)
+                        while (this.properties.loraCount > maxLoraId) {
+                            const id = this.properties.loraCount;
+                            
+                            // Remove Name Widget
+                            const nameIndex = this.widgets.findIndex(w => w.name === `lora_${id}_name`);
+                            if (nameIndex > -1) this.widgets.splice(nameIndex, 1);
+                            
+                            // Remove Strength Widget
+                            const strengthIndex = this.widgets.findIndex(w => w.name === `lora_${id}_strength`);
+                            if (strengthIndex > -1) this.widgets.splice(strengthIndex, 1);
+
+                            // Remove Outputs (corresponding to this LoRA layer)
+                            // We assume the last 2 outputs are the ones to go. 
+                            // Guard against removing the main Prompt output (index 0).
+                            if (this.outputs.length > 1) this.removeOutput(this.outputs.length - 1);
+                            if (this.outputs.length > 1) this.removeOutput(this.outputs.length - 1);
+
+                            this.properties.loraCount--;
+                            changed = true;
+                        }
+
                         while (this.properties.loraCount < maxLoraId) {
                             this.addLoraInputs();
-                            added = true;
+                            changed = true;
                         }
                         
-                        if (added) {
+                        if (changed) {
                             this.moveButtonsToBottom();
                             this.smartResize();
                         }
